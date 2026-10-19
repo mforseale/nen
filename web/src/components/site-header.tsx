@@ -26,10 +26,10 @@ export default function SiteHeader() {
   const { data: profile } = useApi<Person>(user ? "/my/profile/identity" : null);
   useEffect(() => {
     if (!user) return;
-    const refresh = () => { reload(); reloadFriends(); };
+    const refresh = () => { if (document.visibilityState === "visible") { reload(); reloadFriends(); } };
     const timer = setInterval(refresh, 30000);
-    window.addEventListener("focus", refresh);
-    return () => { clearInterval(timer); window.removeEventListener("focus", refresh); };
+    // useApi already refreshes on focus; a second listener doubled these requests.
+    return () => { clearInterval(timer); };
   }, [user, reload, reloadFriends]);
   const pactPending = requests?.filter(r => r.incoming && r.status === "pending").length ?? 0;
   const friendPending = friends?.filter(r => r.incoming && r.status === "pending").length ?? 0;

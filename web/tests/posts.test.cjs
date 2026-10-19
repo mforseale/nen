@@ -97,8 +97,29 @@ test("feed comment preview requests three replies and never renders a fourth",()
 
 function memoryStorage(){const data=new Map();return {getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,String(value)),removeItem:key=>data.delete(key)};}
 function memoryIndexedDB(options={}){
-  const values=new Map();
-  return {open(){const request={};queueMicrotask(()=>{request.result={createObjectStore(){},close(){},transaction(){const tx={};tx.objectStore=()=>({get(key){const item={};queueMicrotask(()=>{item.result=values.get(key);tx.oncomplete?.();});return item;},put(value,key){const item={};queueMicrotask(()=>{if(options.failWrites){tx.error=new Error("Quota exceeded");tx.onabort?.();}else{values.set(key,value);tx.oncomplete?.();}});return item;},delete(key){const item={};queueMicrotask(()=>{values.delete(key);tx.oncomplete?.();});return item;}});return tx;}};request.onsuccess?.();});return request;}};
+  const values=new Map(Object.entries(options.seed??{}).map(([name,entries])=>[name,new Map(entries)]));
+  return {values,open(){const request={};queueMicrotask(()=>{
+    request.result={createObjectStore(){},close(){},transaction(names,mode){
+      names=Array.isArray(names)?names:[names];
+      const copies=new Map(names.map(name=>[name,new Map(values.get(name)??[])]));
+      let pending=0,done=false;
+      const tx={abort(){if(done)return;done=true;tx.onabort?.();}};
+      function operation(action,write=false){
+        const item={};pending++;
+        queueMicrotask(()=>{
+          if(done)return;
+          if(write&&options.failWrites){tx.error=new Error("Quota exceeded");tx.abort();return;}
+          item.result=action();item.onsuccess?.();pending--;
+          queueMicrotask(()=>{if(!done&&!pending){done=true;if(mode==='readwrite')for(const [name,data] of copies)values.set(name,data);tx.oncomplete?.();}});
+        });return item;
+      }
+      tx.objectStore=name=>({
+        get:key=>operation(()=>copies.get(name).get(key)),
+        put:(value,key)=>operation(()=>{options.puts?.push({store:name,files:Array.isArray(value)?value.length:value.files?.length??0});copies.get(name).set(key,value);},true),
+        delete:key=>operation(()=>copies.get(name).delete(key),true),
+      });return tx;
+    }};request.onsuccess?.();
+  });return request;}};
 }
 test("draft writes serialize before reopen and publish clearing; user/post keys isolate content and files",async()=>{
   const {postDraftKey,savePostDraft,loadPostDraft,deletePostDraft}=load("lib/post-drafts.ts");
@@ -130,4 +151,42 @@ test("quota failures recover newer fallback text even when IndexedDB can still r
   await savePostDraft(key,draft);options.failWrites=true;
   await assert.rejects(savePostDraft(key,{...draft,updatedAt:2,content:"новая версия",files:[new File(["a"],"a.txt")]}),/Текст сохранён/);
   const recovered=await loadPostDraft(key);assert.equal(recovered.content,"новая версия");assert.equal(recovered.missingFiles,true);
+});
+
+test("typing updates metadata without rewriting attachments; removing/discarding clears file records",async()=>{
+  const {savePostDraft,loadPostDraft,deletePostDraft}=load("lib/post-drafts.ts");
+  global.localStorage=memoryStorage();const options={puts:[]};global.indexedDB=memoryIndexedDB(options);
+  const key='performance:files',file=new File(['unchanged original'],'original.bin'),files=[file];
+  const draft={version:1,updatedAt:1,title:'',content:'',url:'',visibility:'private',retainedIds:[],files,removeImage:false,pinNew:false};
+  for(let i=0;i<30;i++)await savePostDraft(key,{...draft,updatedAt:i+1,content:'a'.repeat(i)});
+  assert.equal(options.puts.filter(p=>p.store==='attachments').length,1);
+  assert.equal(options.puts.filter(p=>p.store==='drafts'&&p.files>0).length,0);
+  const reopened=await loadPostDraft(key);
+  assert.equal(await reopened.files[0].text(),'unchanged original');
+  await savePostDraft(key,{...reopened,updatedAt:35,content:'Edited after reopening'});
+  assert.equal(options.puts.filter(p=>p.store==='attachments').length,1);
+  await savePostDraft(key,{...draft,updatedAt:40,files:[]});assert.equal((await loadPostDraft(key)).files.length,0);
+  assert.equal(global.indexedDB.values.get('attachments').has(key),false);
+  await savePostDraft(key,{...draft,updatedAt:50});await deletePostDraft(key);
+  assert.equal(global.indexedDB.values.get('attachments').has(key),false);
+});
+
+test("immediate text checkpoint survives pending autosave and keeps already persisted files",async()=>{
+  const {savePostDraft,checkpointPostDraft,loadPostDraft}=load("lib/post-drafts.ts");
+  global.localStorage=memoryStorage();global.indexedDB=memoryIndexedDB();
+  const key='performance:checkpoint',draft={version:1,updatedAt:1,title:'',content:'older',url:'',visibility:'private',retainedIds:[],files:[new File(['original'],'a.txt')],removeImage:false,pinNew:false};
+  const pending=savePostDraft(key,draft);
+  checkpointPostDraft(key,{...draft,updatedAt:2,content:'typed before older save completed'});
+  await pending;const recovered=await loadPostDraft(key);
+  assert.equal(recovered.content,'typed before older save completed');assert.equal(recovered.missingFiles,false);
+  assert.equal(await recovered.files[0].text(),'original');
+});
+
+test("legacy drafts with embedded File blobs remain readable and normalize on the next save",async()=>{
+  const {savePostDraft,loadPostDraft}=load("lib/post-drafts.ts");
+  const key='performance:legacy',draft={version:1,updatedAt:1,title:'Legacy',content:'Kept',url:'',visibility:'private',retainedIds:[],files:[new File(['legacy bytes'],'old.txt')],removeImage:false,pinNew:false};
+  global.localStorage=memoryStorage();global.indexedDB=memoryIndexedDB({seed:{drafts:[[key,draft]]}});
+  const restored=await loadPostDraft(key);assert.equal(restored.title,'Legacy');assert.equal(await restored.files[0].text(),'legacy bytes');
+  await savePostDraft(key,{...restored,updatedAt:2,content:'New text'});
+  assert.equal((await loadPostDraft(key)).content,'New text');assert.equal(global.indexedDB.values.get('drafts').get(key).files.length,0);
 });

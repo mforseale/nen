@@ -108,3 +108,5 @@ button, input, textarea, select, a { -webkit-tap-highlight-color: transparent; }
   .site-shell .page-content { padding-bottom: 80px; }
   .site-shell .site-header { padding-block: 22px 20px; }
 }
+/* A solid scrim avoids re-blurring the whole page under every editor repaint. */
+.nen-dialog::backdrop { background: #000d; backdrop-filter: none; }

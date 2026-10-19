@@ -1,16 +1,29 @@
 ﻿"use client";
 /* eslint-disable @next/next/no-img-element -- Local upload previews do not use the shared image optimizer. */
 
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { refreshData } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { audiences, type Audience, type ProfileFile, type ProfilePost } from "@/lib/community";
 import { fileIcon, fileSize, MAX_FILE_SIZE, MAX_FILES, MAX_POST_SIZE, multipart } from "@/lib/profile-files";
-import { deletePostDraft, loadPostDraft, postDraftKey, savePostDraft, type PostDraft } from "@/lib/post-drafts";
+import { checkpointPostDraft, deletePostDraft, loadPostDraft, postDraftKey, savePostDraft, type PostDraft } from "@/lib/post-drafts";
+import { filePreview } from "@/lib/file-preview";
 import { ErrorMessage, Icon, Modal } from "./ui";
 import { PostTextEditor } from "./post-rich-text";
 
-type Pending = { key: string; file: File; preview: string | null };
+type Pending = { key: string; file: File };
+const PendingAttachment = memo(function PendingAttachment({ item, onRemove }: { item: Pending; onRemove: (key: string) => void }) {
+  const [preview, setPreview] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true, url: string | null = null;
+    void filePreview(item.file).then(blob => {
+      if (!active || !blob) return;
+      url = URL.createObjectURL(blob); setPreview(url);
+    });
+    return () => { active = false; if (url) URL.revokeObjectURL(url); };
+  }, [item.file]);
+  return <div>{preview ? <img src={preview} alt="" decoding="async"/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : item.file.type.startsWith("image/") ? "image" : "file"}/>}<span><strong>{item.file.name}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать файл "+item.file.name} onClick={()=>onRemove(item.key)}><Icon name="close"/></button></div>;
+});
 export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost; onClose: () => void }) {
   // A background feed refresh must never reset an editor that is already open.
   const [post] = useState(initialPost);
@@ -19,12 +32,13 @@ export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost;
   const [title, setTitle] = useState(post?.title ?? ""), [content, setContent] = useState(post?.content ?? ""), [url, setUrl] = useState(post?.url ?? "");
   const [visibility, setVisibility] = useState<Audience>(post?.visibility ?? "private");
   const [retained, setRetained] = useState<ProfileFile[]>(post?.attachments ?? []);
-  const [pending, setPending] = useState<Pending[]>([]), [removeImage, setRemoveImage] = useState(false), [pinNew, setPinNew] = useState(false);
+  const [files, setFiles] = useState<File[]>([]), [removeImage, setRemoveImage] = useState(false), [pinNew, setPinNew] = useState(false);
+  const pending = useMemo<Pending[]>(() => files.map(file => ({ key: `${file.name}:${file.size}:${file.lastModified}`, file })), [files]);
   const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false), [readyKey, setReadyKey] = useState<string | null>(null);
   const ready = !!key && readyKey === key;
   const [draftMessage, setDraftMessage] = useState("Восстанавливаем черновик…"), [draftError, setDraftError] = useState<string | null>(null);
-  const previews = useRef(new Set<string>()), picker = useRef<HTMLInputElement>(null), published = useRef(false);
-  useEffect(() => { const urls = previews.current; return () => { urls.forEach(value => URL.revokeObjectURL(value)); }; }, []);
+  const picker = useRef<HTMLInputElement>(null), published = useRef(false), previousFiles = useRef<File[] | null>(null);
+  const removePending = useCallback((key: string) => setFiles(items => items.filter(file => `${file.name}:${file.size}:${file.lastModified}` !== key)), []);
   useEffect(() => {
     let active = true;
     if (!key) return;
@@ -34,23 +48,31 @@ export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost;
         setTitle(draft.title); setContent(draft.content); setUrl(draft.url); setVisibility(draft.visibility);
         setRetained((post?.attachments ?? []).filter(file => draft.retainedIds.includes(file.id)));
         setRemoveImage(draft.removeImage); setPinNew(draft.pinNew);
-        setPending(draft.files.map(file => {
-          const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
-          if (preview) previews.current.add(preview);
-          return { key: `${file.name}:${file.size}:${file.lastModified}`, file, preview };
-        }));
+        setFiles(draft.files);
         setDraftMessage(draft.missingFiles ? "Восстановлен текст черновика. Браузер не сохранил файлы — прикрепи их повторно." : "Черновик восстановлен — включая прикреплённые файлы.");
       } else setDraftMessage("Черновик сохраняется на этом устройстве.");
       setReadyKey(key);
     }).catch(() => { if (active) { setReadyKey(key); setDraftError("Не удалось открыть черновик. Сохранение браузером может быть ограничено."); } });
     return () => { active = false; };
   }, [key, post]);
-  const snapshot = useCallback((): PostDraft => ({ version: 1, updatedAt: Date.now(), title, content, url, visibility, retainedIds: retained.map(file => file.id), files: pending.map(item => item.file), removeImage, pinNew }), [title, content, url, visibility, retained, pending, removeImage, pinNew]);
+  const snapshot = useCallback((): PostDraft => ({ version: 1, updatedAt: Date.now(), title, content, url, visibility, retainedIds: retained.map(file => file.id), files, removeImage, pinNew }), [title, content, url, visibility, retained, files, removeImage, pinNew]);
   useEffect(() => {
     if (!ready || !key || published.current) return;
     let active = true;
-    savePostDraft(key, snapshot()).then(() => { if (active) setDraftError(null); }).catch(error => { if (active) setDraftError((error as Error).message); });
-    return () => { active = false; };
+    const draft = snapshot(), filesChanged = previousFiles.current !== draft.files;
+    previousFiles.current = draft.files;
+    // The latest text survives reload immediately. File bytes are written only
+    // when attachments change; typing batches small metadata writes after a pause.
+    try { checkpointPostDraft(key, draft); } catch {}
+    const save = () => {
+      if (published.current) return;
+      void savePostDraft(key, draft).then(() => { if (active) setDraftError(null); }).catch(error => { if (active) setDraftError((error as Error).message); });
+    };
+    let timer: number | undefined;
+    if (filesChanged) save();
+    else timer = window.setTimeout(save, 450);
+    window.addEventListener("pagehide", save);
+    return () => { active = false; window.clearTimeout(timer); window.removeEventListener("pagehide", save); };
   }, [key, ready, snapshot]);
   async function close() {
     if (busy) return;
@@ -60,17 +82,13 @@ export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost;
     }
     onClose();
   }
-  function select(files: FileList | null) {
-    if (!files) return;
-    const selected = Array.from(files).filter(file => !pending.some(item => item.key === `${file.name}:${file.size}:${file.lastModified}`));
+  function select(selection: FileList | null) {
+    if (!selection) return;
+    const selected = Array.from(selection).filter(file => !pending.some(item => item.key === `${file.name}:${file.size}:${file.lastModified}`));
     if (retained.length + pending.length + selected.length + Number(!!post?.image_url && !removeImage) > MAX_FILES) { setError("В одном посте может быть до 10 файлов."); return; }
     if (selected.some(file => file.size > MAX_FILE_SIZE)) { setError("Один файл должен быть не больше 25 МиБ."); return; }
     if (retained.reduce((sum, file) => sum + file.size, 0) + [...pending.map(item => item.file), ...selected].reduce((sum, file) => sum + file.size, 0) > MAX_POST_SIZE) { setError("Суммарный размер файлов поста — до 50 МиБ."); return; }
-    setError(null); setPending([...pending, ...selected.map(file => {
-      const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
-      if (preview) previews.current.add(preview);
-      return { key: `${file.name}:${file.size}:${file.lastModified}`, file, preview };
-    })]);
+    setError(null); setFiles([...files, ...selected]);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setBusy(true); setError(null);
@@ -93,7 +111,7 @@ export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost;
       <PostTextEditor value={content} onChange={setContent} disabled={busy || !ready} onAttach={()=>picker.current?.click()}/>
       <label className="file-drop-label"><Icon name="upload"/><strong>Добавить файлы</strong><span>Изображения, музыка, видео и документы</span><input ref={picker} type="file" multiple disabled={busy || !ready} onChange={event=>{select(event.target.files);event.target.value="";}}/></label>
       <p className="form-caption">До 10 файлов · 25 МиБ на файл · 50 МиБ на пост. Музыка появится под изображениями.</p>
-      {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map(file=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+file.name} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map(item=><div key={item.key}>{item.preview ? <img src={item.preview} alt=""/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : "file"}/>}<span><strong>{item.file.name}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать файл "+item.file.name} onClick={()=>{if(item.preview){URL.revokeObjectURL(item.preview);previews.current.delete(item.preview);}setPending(pending.filter(file=>file.key!==item.key));}}><Icon name="close"/></button></div>)}</div>}
+      {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map(file=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+file.name} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map(item=><PendingAttachment key={item.key} item={item} onRemove={removePending}/>)}</div>}
       {post?.image_url && !removeImage && <div className="post-image-preview"><img src={post.image_url} alt="Картинка из прежней публикации"/><button type="button" className="text-link" onClick={()=>setRemoveImage(true)}>Убрать прежнюю картинку</button></div>}
       {pending.length > 0 && <label className="composer-pin"><input type="checkbox" checked={pinNew} onChange={event=>setPinNew(event.target.checked)}/>Закрепить новые вложения в профиле (до 10 файлов)</label>}
       <label>Ссылка (необязательно)<input type="url" name="url" value={url} onChange={event=>setUrl(event.target.value)} maxLength={2000} placeholder="https://…"/></label>

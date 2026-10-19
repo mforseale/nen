@@ -83,7 +83,8 @@ def main(archive, sha):
             run(*delivery, "probe", *target, env=env)
             command = [*delivery, "install", *target, "--archive", str(archive), "--sha256", sha, "--commit", metadata["commit"]]
             # Disconnect both the client and its ssh child during a real update.
-            client = subprocess.Popen(command, env=env, start_new_session=True)
+            client_output = (work / "client.log").open("w")
+            client = subprocess.Popen(command, env=env, start_new_session=True, stdout=client_output, stderr=client_output)
             deadline = time.monotonic() + 40
             while time.monotonic() < deadline:
                 state = run("systemctl", "show", "nen-deploy.service", "--property=ActiveState", "--value",
@@ -124,10 +125,14 @@ def main(archive, sha):
         except BaseException as error:
             journal = subprocess.run(["journalctl", "-u", "nen-deploy.service", "-u", "nen-api.service", "--no-pager", "-n", "45", "-o", "cat"],
                                      capture_output=True, text=True).stdout
-            detail = f"{error}\n{ssh_log.read_text() if ssh_log.exists() else ''}\n{journal}"
+            client_log = work / "client.log"
+            detail = (f"{error}\n{client_log.read_text() if client_log.exists() else ''}\n"
+                      f"{ssh_log.read_text() if ssh_log.exists() else ''}\n{journal}")
             print("::error::" + detail[-9000:].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A"))
             raise
         finally:
+            if "client_output" in locals():
+                client_output.close()
             sshd.terminate()
             sshd.wait(timeout=10)
             subprocess.run(["systemctl", "stop", "nen-deploy.service", "nen-api.service", "nen-web.service"])

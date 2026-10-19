@@ -109,7 +109,6 @@ def receive(stream, state=STATE):
             work.rename(pending)
             owned_by_service = True
             signal.alarm(0)
-            run("systemctl", "reset-failed", SERVICE)
             run("systemctl", "start", "--no-block", SERVICE)
             # The service owns pending/ from now on. If SSH disappears, neither
             # its process nor its input files are removed by this connection.

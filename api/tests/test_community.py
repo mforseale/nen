@@ -242,7 +242,7 @@ class CommunityTests(unittest.TestCase):
             result = self.a.post("/api/v1/my/posts", json={"kind": kind, "title": "Inspiration", "content": "A personal recommendation", "url": "https://example.org/item"})
             self.assertEqual(result.status_code, 201, result.text)
 
-    def test_achievements_use_own_real_checkins_and_tier_topic(self):
+    def test_achievements_use_automatic_progress_and_manual_history_without_duplicate_days(self):
         pacts = []
         for index in range(6):
             if index >= 3:
@@ -251,7 +251,7 @@ class CommunityTests(unittest.TestCase):
                     db.commit()
             pacts.append(self.pact(title=f"Practice {index}"))
         before = self.a.get("/api/v1/my/profile").json()["achievements"]
-        self.assertFalse(any(item["earned"] for item in before))
+        self.assertTrue(next(item for item in before if item["id"] == "first-step")["earned"])
         day = datetime.now(timezone.utc).date()
         with self.sessions() as db:
             alice = db.scalar(select(User).where(User.username == "alice"))
@@ -265,7 +265,7 @@ class CommunityTests(unittest.TestCase):
         earned = {item["id"]: item for item in self.a.get("/api/v1/my/profile").json()["achievements"]}
         self.assertTrue(earned["first-step"]["earned"])
         self.assertTrue(earned["tier-common"]["earned"])
-        self.assertEqual(earned["tier-common"]["count"], 5)
+        self.assertEqual(earned["tier-common"]["count"], 6)
         topic = next(item for item in earned.values() if item["title"] == "Разум")
         self.assertTrue(topic["earned"])
         self.assertFalse(earned["tier-epic"]["earned"])
@@ -279,4 +279,4 @@ class CommunityTests(unittest.TestCase):
             db.commit()
         final = {item["id"]: item for item in self.a.get("/api/v1/my/profile").json()["achievements"]}
         self.assertTrue(final["kept-word"]["earned"])
-        self.assertEqual(final["tier-common"]["count"], 5)
+        self.assertEqual(final["tier-common"]["count"], 6)

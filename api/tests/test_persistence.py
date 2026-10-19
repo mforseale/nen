@@ -30,7 +30,7 @@ def isolated_app(engine):
 
 
 class PersistenceTests(unittest.TestCase):
-    def test_parallel_creation_keeps_capacity_and_parallel_checkin_is_idempotent(self):
+    def test_parallel_creation_is_unlimited_and_parallel_checkin_is_idempotent(self):
         with tempfile.TemporaryDirectory(prefix="nen-concurrency-") as folder:
             engine = create_engine("sqlite:///"+Path(folder,"race.sqlite3").as_posix(),connect_args={"check_same_thread":False})
             Base.metadata.create_all(engine)
@@ -50,9 +50,9 @@ class PersistenceTests(unittest.TestCase):
                     with ThreadPoolExecutor(max_workers=2) as executor:
                         futures = [executor.submit(create,index,client) for index,client in enumerate((first,second))]
                         results = [future.result() for future in futures]
-                    self.assertEqual(sorted(result.status_code for result in results),[201,409])
+                    self.assertEqual(sorted(result.status_code for result in results),[201,201])
                     pacts = first.get("/api/v1/my/pacts").json()
-                    self.assertEqual(len(pacts),3)
+                    self.assertEqual(len(pacts),4)
                     pid = pacts[0]["id"]
                     day = datetime.now(timezone.utc).date().isoformat()
                     with ThreadPoolExecutor(max_workers=2) as executor:

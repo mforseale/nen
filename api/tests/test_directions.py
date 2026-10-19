@@ -29,27 +29,27 @@ class DirectionTests(unittest.TestCase):
         self.assertEqual(item["rarity"], "common")
         return item
 
-    def test_three_per_tier_per_direction_and_independent_cells(self):
+    def test_unlimited_per_tier_per_direction_and_independent_cells(self):
         for category in CATEGORIES:
             for tier in TIERS:
                 self.fill(category, tier)
                 response = self.create(category, tier, title=f"Overflow {category} {tier}")
-                self.assertEqual(response.status_code, 409, response.text)
+                self.assertEqual(response.status_code, 201, response.text)
         capacity = self.a.get("/api/v1/my/pacts/capacity").json()
-        self.assertEqual(capacity["limit"], 3)
+        self.assertIsNone(capacity["limit"])
         self.assertEqual(set(capacity["counts"]), set(CATEGORIES))
-        self.assertTrue(all(count == 3 for tiers in capacity["counts"].values() for count in tiers.values()))
-        self.assertEqual(len(self.a.get("/api/v1/my/pacts").json()), 72)
+        self.assertTrue(all(count == 4 for tiers in capacity["counts"].values() for count in tiers.values()))
+        self.assertEqual(len(self.a.get("/api/v1/my/pacts").json()), 96)
         self.assertEqual(self.b.get("/api/v1/my/pacts").json(), [])
         self.assertEqual(self.anon.get("/api/v1/my/pacts/capacity").status_code, 401)
 
-    def test_personal_pacts_share_capacity_and_cancel_frees_slot(self):
+    def test_personal_pacts_can_move_into_populated_direction_and_keep_history(self):
         self.fill("Разум")
-        self.assertEqual(self.create(category="\u0420\u0430\u0437\u0443\u043c", title="Read pages").status_code, 409)
+        self.assertEqual(self.create(category="\u0420\u0430\u0437\u0443\u043c", title="Read pages").status_code, 201)
         walk = self.create(title="Daily walk")
         self.assertEqual(walk.status_code, 201, walk.text)
         self.assertEqual(walk.json()["category"], "Тело")
-        self.assertEqual(self.a.put(f"/api/v1/my/pacts/{walk.json()['id']}/category", json={"category":"Разум"}).status_code, 409)
+        self.assertEqual(self.a.put(f"/api/v1/my/pacts/{walk.json()['id']}/category", json={"category":"Разум"}).status_code, 200)
         mind = next(p for p in self.a.get("/api/v1/my/pacts").json() if p["category"] == "Разум")
         day = datetime.now(timezone.utc).date().isoformat()
         self.a.post(f"/api/v1/my/pacts/{mind['id']}/checkin", json={"day":day})
@@ -57,23 +57,17 @@ class DirectionTests(unittest.TestCase):
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json()["checkins"], [day])
         self.assertEqual(result.json()["status"], "cancelled")
-        self.assertEqual(self.create(category="\u0420\u0430\u0437\u0443\u043c", title="Read pages").status_code, 201)
+        self.assertEqual(self.create(category="\u0420\u0430\u0437\u0443\u043c", title="Another read pact").status_code, 201)
 
-    def test_joint_acceptance_rechecks_sender_and_recipient_without_consuming_pending(self):
+    def test_joint_acceptance_with_many_pacts_is_allowed_for_both_members(self):
         item = self.invitation()
         self.fill("Социум", client=self.b)
-        response = self.b.post(f"/api/v1/requests/{item['id']}/respond", json={"accept":True})
-        self.assertEqual(response.status_code, 409, response.text)
-        self.assertEqual(self.b.get("/api/v1/requests").json()[0]["status"], "pending")
-        victim = self.b.get("/api/v1/my/pacts").json()[0]
-        self.b.post(f"/api/v1/my/pacts/{victim['id']}/cancel")
         self.fill("Социум")
-        self.assertEqual(self.b.post(f"/api/v1/requests/{item['id']}/respond", json={"accept":True}).status_code, 409)
-        own = next(p for p in self.a.get("/api/v1/my/pacts").json() if p["status"] == "active")
-        self.a.post(f"/api/v1/my/pacts/{own['id']}/cancel")
-        self.assertEqual(self.b.post(f"/api/v1/requests/{item['id']}/respond", json={"accept":True}).status_code, 200)
+        response = self.b.post(f"/api/v1/requests/{item['id']}/respond", json={"accept":True})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.b.get("/api/v1/requests").json()[0]["status"], "accepted")
         for client in (self.a,self.b):
-            self.assertEqual(client.get("/api/v1/my/pacts/capacity").json()["counts"]["Социум"]["common"], 3)
+            self.assertEqual(client.get("/api/v1/my/pacts/capacity").json()["counts"]["Социум"]["common"], 4)
 
     def test_decline_is_allowed_when_full_and_drafts_do_not_reserve_capacity(self):
         item = self.invitation()
@@ -87,7 +81,7 @@ class DirectionTests(unittest.TestCase):
         self.b.post(f"/api/v1/requests/{item['id']}/respond", json={"accept":True})
         pid = item["pact_id"]
         self.fill("Тело", client=self.b)
-        self.assertEqual(self.a.put(f"/api/v1/my/pacts/{pid}/category", json={"category":"Тело"}).status_code, 409)
+        self.assertEqual(self.a.put(f"/api/v1/my/pacts/{pid}/category", json={"category":"Тело"}).status_code, 200)
         self.assertEqual(self.b.put(f"/api/v1/my/pacts/{pid}/category", json={"category":"Разум"}).status_code, 403)
         self.assertEqual(self.b.post(f"/api/v1/my/pacts/{pid}/cancel").status_code, 403)
         moved = self.a.put(f"/api/v1/my/pacts/{pid}/category", json={"category":"Разум"})
@@ -109,13 +103,13 @@ class DirectionTests(unittest.TestCase):
         self.assertEqual(len(pacts),4)
         self.assertTrue(all(p["category"] == "Тело" and p["description"] == "Original terms" and len(p["checkins"]) == 1 for p in pacts))
         self.assertEqual(self.a.get("/api/v1/my/pacts/capacity").json()["counts"]["Тело"]["common"],4)
-        self.assertEqual(self.create(title="Blocked fifth").status_code,409)
+        self.assertEqual(self.create(title="Fifth now allowed").status_code,201)
         pid = pacts[0]["id"]
         moved = self.a.put(f"/api/v1/my/pacts/{pid}/category",json={"category":"Другое"})
         self.assertEqual(moved.status_code,200,moved.text)
         self.assertEqual(moved.json()["checkins"],pacts[0]["checkins"])
         self.assertEqual(moved.json()["created_at"],pacts[0]["created_at"])
-        self.assertEqual(len(self.a.get("/api/v1/my/pacts").json()),4)
+        self.assertEqual(len(self.a.get("/api/v1/my/pacts").json()),5)
 
     def test_unknown_direction_input_is_rejected(self):
         self.assertEqual(self.create("invented").status_code,422)

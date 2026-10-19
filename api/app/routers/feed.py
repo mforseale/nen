@@ -3,16 +3,16 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from pydantic import Field, ValidationError
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.activity import ActivityScope, accepted_friend_ids, activity_authors
 from app.files import MAX_FILE_SIZE, MAX_FILES, MAX_POST_SIZE, classify_file, clean_name, file_view, file_visible
-from app.models import ProfileFile, ProfilePost, User
-from app.profile_data import person_view, post_view
+from app.models import ProfileFile, ProfilePost, ProfileDetails, ProfilePostLike, ProfilePostComment, User
+from app.profile_data import person_view, post_view, visible
 from app.routers.auth import get_current_user
 from app.routers.community import Audience, PostInput, owned_item
 from app.routers.workspace import Input, lock_user, optional_user
@@ -29,7 +29,7 @@ def forum_posts(response: Response, scope: ActivityScope = "all", user: User | N
         allowed = or_(allowed, ProfilePost.user_id == user.id,
                       (ProfilePost.visibility == "friends") & ProfilePost.user_id.in_(friends))
     posts = db.scalars(select(ProfilePost).where(allowed, activity_authors(ProfilePost.user_id,scope,user)).order_by(ProfilePost.created_at.desc(), ProfilePost.id.desc()).limit(100)).all()
-    return [{**post_view(post, db), "author": person_view(db, db.get(User, post.user_id))} for post in posts]
+    return [post_view(post, db, viewer=user) for post in posts]
 
 
 def pin_count(db, user_id):
@@ -112,7 +112,7 @@ async def save_post(db, user, item, raw, uploads):
     for index, fields in enumerate(files, len(retained)):
         db.add(ProfileFile(user_id=user.id, post_id=item.id, position=index, pinned=payload.pin_new, **fields))
     db.commit()
-    return post_view(item, db)
+    return post_view(item, db, viewer=user)
 
 
 @router.post("/my/feed", status_code=201)
@@ -126,10 +126,12 @@ async def edit_post(post_id: int, payload: str = Form(...), files: list[UploadFi
 
 
 @router.post("/my/files", status_code=201)
-async def upload_pin(file: UploadFile = File(...), visibility: Audience = Form(default="private"), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def upload_pin(file: UploadFile = File(...), visibility: Audience = Form(default="private"), pinned: bool = Form(default=True), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     fields = await read_file(file)
-    lock_user(db, user.id);room_for_pins(db, user.id, 1)
-    item = ProfileFile(user_id=user.id, pinned=True, visibility=visibility, **fields)
+    lock_user(db, user.id)
+    if pinned:
+        room_for_pins(db, user.id, 1)
+    item = ProfileFile(user_id=user.id, pinned=pinned, visibility=visibility, **fields)
     db.add(item);db.commit()
     return file_view(item,db)
 
@@ -161,7 +163,81 @@ def update_file(file_id: int, payload: FileUpdate, user: User = Depends(get_curr
 @router.delete("/my/files/{file_id}", status_code=204)
 def delete_file(file_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     lock_user(db, user.id)
-    db.delete(owned_item(db, ProfileFile, file_id, user));db.commit()
+    item = owned_item(db, ProfileFile, file_id, user)
+    db.execute(update(ProfileDetails).where(ProfileDetails.user_id == user.id, ProfileDetails.status_audio_id == file_id).values(status_audio_id=None))
+    db.delete(item);db.commit()
+
+
+def visible_post(db, post_id, user):
+    item = db.get(ProfilePost, post_id)
+    if not item or not visible(db, item, user):
+        raise HTTPException(404, "Публикация не найдена")
+    return item
+
+
+@router.get("/profile/posts/{post_id}")
+def read_post(post_id: int, response: Response, user: User | None = Depends(optional_user), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    return post_view(visible_post(db, post_id, user), db, viewer=user)
+
+
+@router.put("/profile/posts/{post_id}/like")
+def like_post(post_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    lock_user(db, user.id)
+    post = visible_post(db, post_id, user)
+    if not db.get(ProfilePostLike, (post_id, user.id)):
+        db.add(ProfilePostLike(post_id=post_id, user_id=user.id))
+    db.commit()
+    return post_view(post, db, viewer=user)
+
+
+@router.delete("/profile/posts/{post_id}/like")
+def unlike_post(post_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    lock_user(db, user.id)
+    post = visible_post(db, post_id, user)
+    db.execute(delete(ProfilePostLike).where(ProfilePostLike.post_id == post_id, ProfilePostLike.user_id == user.id))
+    db.commit()
+    return post_view(post, db, viewer=user)
+
+
+class PostCommentInput(Input):
+    content: str = Field(min_length=1, max_length=3000)
+
+
+def post_comment_view(db, item, post, user):
+    return {"id": item.id, "post_id": item.post_id, "content": item.content, "created_at": item.created_at,
+            "author": person_view(db, db.get(User, item.user_id)),
+            "can_delete": bool(user and user.id in (item.user_id, post.user_id))}
+
+
+@router.get("/profile/posts/{post_id}/comments")
+def post_comments(post_id: int, response: Response, limit: int | None = Query(default=None, ge=1, le=100), user: User | None = Depends(optional_user), db: Session = Depends(get_db)):
+    response.headers["Cache-Control"] = "private, no-store"
+    post = visible_post(db, post_id, user)
+    query = select(ProfilePostComment).where(ProfilePostComment.post_id == post_id).order_by(ProfilePostComment.created_at, ProfilePostComment.id)
+    if limit is not None:
+        query = query.limit(limit)
+    items = db.scalars(query).all()
+    return [post_comment_view(db, item, post, user) for item in items]
+
+
+@router.post("/profile/posts/{post_id}/comments", status_code=201)
+def add_post_comment(post_id: int, payload: PostCommentInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    lock_user(db, user.id)
+    post = visible_post(db, post_id, user)
+    item = ProfilePostComment(post_id=post_id, user_id=user.id, content=payload.content)
+    db.add(item);db.commit()
+    return post_comment_view(db, item, post, user)
+
+
+@router.delete("/profile/posts/{post_id}/comments/{comment_id}", status_code=204)
+def delete_post_comment(post_id: int, comment_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    lock_user(db, user.id)
+    post = visible_post(db, post_id, user)
+    item = db.get(ProfilePostComment, comment_id)
+    if not item or item.post_id != post_id or user.id not in (item.user_id, post.user_id):
+        raise HTTPException(404, "Комментарий не найден")
+    db.delete(item);db.commit()
 
 
 @router.api_route("/profile/files/{file_id}/content", methods=["GET", "HEAD"])

@@ -8,6 +8,9 @@ import "./readability.css";
 import "./profile-compact.css";
 import "./home-directions.css";
 import "./feed-layout.css";
+import "./post-experience.css";
+import "./profile-experience.css";
+import "./responsive-shell.css";
 
 export const metadata: Metadata = {
   title: "Nen — пакты и самоконтроль",

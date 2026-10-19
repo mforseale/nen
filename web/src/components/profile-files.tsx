@@ -1,11 +1,12 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Authenticated file previews must use the current browser session. */
 
-import { useState, type CSSProperties, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api, refreshData, useApi } from "@/lib/api";
 import { audiences, type ProfileFile } from "@/lib/community";
 import { fileExtension, fileIcon, fileSize, MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
 import { Action, ErrorMessage, Icon, Loading, Modal } from "./ui";
+import { PostGallery } from "./post-gallery";
 
 export function PinButton({ file }: { file: ProfileFile }) {
   return <Action className={"button-quiet file-pin " + (file.pinned ? "pinned" : "")} onClick={async()=>{await api(`/my/files/${file.id}`,"PUT",{pinned:!file.pinned});refreshData();}}><Icon name="pin" size={19}/>{file.pinned ? "В закрепе" : "Закрепить"}</Action>;
@@ -28,17 +29,21 @@ export function FileInspector({ file: original, owner, onClose }: { file: Profil
   </div></Modal>;
 }
 
-export function AttachmentList({ files, owner = false, compact = false }: { files: ProfileFile[]; owner?: boolean; compact?: boolean }) {
-  const [view,setView] = useState<ProfileFile|null>(null);
-  const [allImages,setAllImages] = useState(false);
-  const images = files.filter(file=>file.kind === "image"); const media = files.filter(file=>file.kind === "audio" || file.kind === "video"); const other = files.filter(file=>file.kind === "file");
-  const previewMedia = compact ? [...media].sort((a,b)=>Number(b.kind === "audio")-Number(a.kind === "audio")).slice(0,1) : media;
+function PostImageViewer({images, index, onChange, onClose}: {images: {url: string; downloadUrl: string}[]; index: number; onChange: (index: number) => void; onClose: () => void}) {
+  const image = images[index];
+  return <Modal title="Просмотр изображения" onClose={onClose} className="post-image-dialog"><div className="post-image-frame"><img src={image.url} alt={"Изображение " + (index + 1)}/></div><div className="post-image-controls">{images.length > 1 && <button type="button" className="icon-button image-previous" aria-label="Предыдущее изображение" onClick={()=>onChange((index+images.length-1)%images.length)}><Icon name="chevron"/></button>}<span aria-live="polite">{index + 1} / {images.length}</span>{images.length > 1 && <button type="button" className="icon-button" aria-label="Следующее изображение" onClick={()=>onChange((index+1)%images.length)}><Icon name="chevron"/></button>}<a className="text-link" href={image.downloadUrl}><Icon name="download" size={22}/>Оригинал</a></div></Modal>;
+}
+
+export function AttachmentList({ files, owner = false, compact = false, legacyImage }: { files: ProfileFile[]; owner?: boolean; compact?: boolean; legacyImage?: { url: string; title: string } }) {
+  const [view,setView] = useState<ProfileFile|null>(null), [imageIndex,setImageIndex] = useState<number|null>(null);
+  const images = [...(legacyImage ? [{ url: legacyImage.url, name: legacyImage.title || "Изображение в посте", file: null as ProfileFile | null }] : []), ...files.filter(file=>file.kind === "image").map(file=>({ url:file.url,name:file.name,file }))];
+  const media = files.filter(file=>file.kind === "audio" || file.kind === "video"), other = files.filter(file=>file.kind === "file");
   return <div className={"post-attachments"+(compact ? " compact-attachments" : "")}>
-    {images.length > 0 && <div className={"post-gallery " + (images.length === 1 ? "single" : "")} style={compact ? {"--gallery-columns":images.length === 1 ? 1 : images.length <= 4 ? 2 : images.length === 10 ? 5 : 3,"--gallery-rows":Math.ceil(images.length/(images.length === 1 ? 1 : images.length <= 4 ? 2 : images.length === 10 ? 5 : 3))} as CSSProperties : undefined}>{(compact || allImages ? images : images.slice(0,4)).map(file=><div className="post-gallery-item" key={file.id}><button onClick={()=>setView(file)} aria-label={"Открыть картинку "+file.name}><img src={file.url} alt={file.name} loading="lazy"/></button>{owner && !compact && <PinButton file={file}/>}</div>)}</div>}
-    {!compact && images.length > 4 && <button className="showcase-more" onClick={()=>setAllImages(!allImages)}>{allImages ? "Свернуть картинки" : `Ещё картинки (${images.length-4})`}<Icon name="chevron"/></button>}
-    {media.length > 0 && <div className="post-media-list">{previewMedia.map(file=><div className="post-media" key={file.id}><div className="post-media-heading"><Icon name={fileIcon(file.kind)}/><strong>{file.name}</strong>{owner && !compact && <PinButton file={file}/>}</div>{file.kind === "audio" ? <audio controls preload="none" src={file.url}/> : <video controls preload="metadata" src={file.url}/>}<div className="post-media-footer"><span>{fileSize(file.size)}{compact && media.length > 1 ? ` · ещё ${media.length-1} в посте` : ""}</span><a href={file.download_url}>Скачать</a></div></div>)}</div>}
-    {other.length > 0 && <div className="post-other-files">{(compact ? other.slice(0,1) : other).map(file=><div key={file.id}><button className="post-file-open" onClick={()=>setView(file)}><Icon name="file"/><span><strong>{file.name}</strong><small>{fileExtension(file.name)} · {fileSize(file.size)}{compact && other.length > 1 ? ` · ещё ${other.length-1} в посте` : ""}</small></span></button>{owner && !compact && <PinButton file={file}/>}<a className="icon-button" href={file.download_url} aria-label={"Скачать "+file.name}><Icon name="download"/></a></div>)}</div>}
+    {images.length > 0 && <PostGallery images={images} compact={compact} onOpen={setImageIndex}/>}
+    {media.length > 0 && <div className="post-media-list">{media.map(file=><div className={"post-media post-media-"+file.kind} key={file.id}><div className="post-media-heading"><span className="post-file-emblem"><Icon name={fileIcon(file.kind)}/></span><strong>{file.name}</strong>{owner && !compact && <PinButton file={file}/>}</div>{file.kind === "audio" ? <audio controls preload="none" src={file.url}/> : <video controls preload="metadata" src={file.url}/>}<div className="post-media-footer"><span>{fileSize(file.size)}</span><a href={file.download_url}>Скачать</a></div></div>)}</div>}
+    {other.length > 0 && <div className="post-other-files">{other.map(file=><div key={file.id}><button className="post-file-open" onClick={()=>setView(file)}><span className="post-file-emblem"><Icon name="file"/><b>{fileExtension(file.name)}</b></span><span><strong>{file.name}</strong><small>{fileSize(file.size)}</small></span></button>{owner && !compact && <PinButton file={file}/>}<a className="icon-button" href={file.download_url} aria-label={"Скачать "+file.name}><Icon name="download"/></a></div>)}</div>}
     {view && <FileInspector key={view.id} file={view} owner={owner} onClose={()=>setView(null)}/>}
+    {imageIndex !== null && images.length > 0 && <PostImageViewer images={images.map(image=>({url:image.url,downloadUrl:image.file?.download_url ?? image.url}))} index={Math.min(imageIndex,images.length-1)} onChange={setImageIndex} onClose={()=>setImageIndex(null)}/>}
   </div>;
 }
 

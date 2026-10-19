@@ -1,5 +1,4 @@
 """Canonical pact directions, legacy projections and active capacity."""
-from fastapi import HTTPException
 from sqlalchemy import select
 
 from app.catalog import TEMPLATES
@@ -7,7 +6,7 @@ from app.models import Pact, PactDetails, PactParticipant, PactStatus, PactTopic
 
 CATEGORIES = ("Тело", "Социум", "Дисциплина", "Разум", "Созидание", "Другое")
 TIERS = ("common", "rare", "epic", "legendary")
-LIMIT = 3
+LIMIT = None  # Unlimited; retained in the compatibility capacity response.
 LEGACY = {"Движение": "Тело", "Здоровье": "Тело", "Принципы": "Социум",
           "Осознанность": "Дисциплина", "Фокус": "Дисциплина", "Развитие": "Разум",
           "Творчество": "Созидание", "Личное": "Другое"}
@@ -34,6 +33,5 @@ def active_counts(db, user_id, exclude_id=None):
 
 
 def require_room(db, user_id, category, tier, exclude_id=None, label=""):
-    count = active_counts(db, user_id, exclude_id)[category][tier]
-    if count >= LIMIT:
-        raise HTTPException(409, f"{label}В направлении «{category}» уже {count} активных пакта уровня {tier.title()}. Лимит — 3. Завершите, перенесите или отмените один из них.")
+    # Compatibility for older internal callers; directions no longer have quotas.
+    return None

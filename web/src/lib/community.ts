@@ -7,10 +7,11 @@ export type PostKind = "post" | "image" | "music" | "film" | "book" | "link"; //
 export type Achievement = { id: string; title: string; description: string; count: number; target: number; earned: boolean; group: "path" | "tier" | "topic"; tier: string | null };
 export type YearGoal = { id: number; year: number; title: string; description: string; target: number; current: number; unit: string; visibility: Audience };
 export type ProfileFile = { id: number; post_id: number | null; name: string; kind: "image" | "audio" | "video" | "file"; media_type: string; size: number; pinned: boolean; visibility: Audience; url: string; download_url: string; created_at: string };
-export type ProfilePost = { id: number; kind: PostKind; title: string; content: string; url: string; visibility: Audience; image_url: string | null; created_at: string; updated_at: string; attachments?: ProfileFile[]; author?: Person };
+export type ProfilePost = { id: number; kind: PostKind; title: string; content: string; url: string; visibility: Audience; image_url: string | null; created_at: string; updated_at: string; attachments?: ProfileFile[]; author?: Person; likes_count?: number; comments_count?: number; liked_by_me?: boolean; can_delete?: boolean };
+export type PostComment = { id: number; post_id: number; content: string; created_at: string; author: Person; can_delete: boolean };
 export type Friendship = { id: number; person: Person; status: "pending" | "accepted" | "declined"; incoming: boolean; created_at: string };
 export type Relationship = { status: "none" | "self" | "incoming" | "outgoing" | "friends"; id: number | null };
-export type ProfileData = { user: Person; created_at: string; bio: string; accent: "crimson" | "silver" | "gold"; friend_count: number; friendship: Relationship; friend_preview?: Person[]; pins?: ProfileFile[]; achievements: Achievement[]; goals: YearGoal[]; posts: ProfilePost[]; notes?: Note[] };
+export type ProfileData = { user: Person; created_at: string; bio: string; accent: "crimson" | "silver" | "gold"; status_text?: string; status_audio_id?: number | null; status_audio?: ProfileFile | null; about?: string; location?: string; interests?: string; website?: string; friend_count: number; friendship: Relationship; friend_preview?: Person[]; pins?: ProfileFile[]; achievements: Achievement[]; goals: YearGoal[]; posts: ProfilePost[]; notes?: Note[] };
 export type BatchCheckin = { marked: number[]; already_marked: number[]; expired: number[]; at_limit: number[] };
 
 export function goalPercent(goal: Pick<YearGoal, "current" | "target">) {

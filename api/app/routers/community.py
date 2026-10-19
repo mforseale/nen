@@ -8,11 +8,11 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import Field, field_validator, model_validator
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Friendship, ProfileAvatar, ProfileFile, ProfilePost, ProfileSettings, User, YearGoal
+from app.models import Friendship, ProfileAvatar, ProfileFile, ProfilePost, ProfileSettings, ProfileDetails, ProfilePostLike, ProfilePostComment, User, YearGoal
 from app.profile_data import goal_view, person_view, post_view, profile_view, visible
 from app.routers.auth import get_current_user
 from app.routers.workspace import Decision, Input, lock_user, optional_user
@@ -62,6 +62,17 @@ class ProfileInput(Input):
     full_name: str = Field(min_length=2, max_length=120)
     bio: str = Field(default="", max_length=2000)
     accent: Literal["crimson", "silver", "gold"] = "crimson"
+    status_text: str = Field(default="", max_length=280)
+    status_audio_id: int | None = Field(default=None, gt=0)
+    location: str = Field(default="", max_length=120)
+    interests: str = Field(default="", max_length=500)
+    website: str = Field(default="", max_length=2000)
+    about: str = Field(default="", max_length=5000)
+
+    @field_validator("website")
+    @classmethod
+    def safe_website(cls, value):
+        return PostInput.safe_url(value)
 
 
 @router.put("/my/profile")
@@ -70,6 +81,15 @@ def edit_profile(payload: ProfileInput, user: User = Depends(get_current_user), 
     settings = db.get(ProfileSettings, user.id) or ProfileSettings(user_id=user.id)
     user.full_name = payload.full_name
     settings.bio, settings.accent = payload.bio, payload.accent
+    details = db.get(ProfileDetails, user.id) or ProfileDetails(user_id=user.id)
+    if payload.status_audio_id:
+        audio = db.get(ProfileFile, payload.status_audio_id)
+        if not audio or audio.user_id != user.id or audio.kind != "audio" or audio.post_id:
+            raise HTTPException(422, "Для статуса выберите свой отдельный музыкальный файл")
+    # Older clients editing only name/bio keep the expanded settings unchanged.
+    for key in payload.model_fields_set - {"full_name", "bio", "accent"}:
+        setattr(details, key, getattr(payload, key))
+    db.add(details)
     db.add(settings)
     db.commit()
     return profile_view(db, user, user)
@@ -257,7 +277,7 @@ def write_post(db, item, payload):
     item.image, item.image_type, item.updated_at = image, media, datetime.now(timezone.utc)
     db.add(item)
     db.commit()
-    return post_view(item, db)
+    return post_view(item, db, viewer=db.get(User, item.user_id))
 
 
 @router.post("/my/posts", status_code=201)
@@ -273,8 +293,11 @@ def edit_post(post_id: int, payload: PostInput, user: User = Depends(get_current
 @router.delete("/my/posts/{post_id}", status_code=204)
 def delete_post(post_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     lock_user(db, user.id)
+    post = owned_item(db, ProfilePost, post_id, user)
+    db.execute(delete(ProfilePostLike).where(ProfilePostLike.post_id == post_id))
+    db.execute(delete(ProfilePostComment).where(ProfilePostComment.post_id == post_id))
     db.execute(delete(ProfileFile).where(ProfileFile.post_id == post_id, ProfileFile.user_id == user.id))
-    db.delete(owned_item(db, ProfilePost, post_id, user))
+    db.delete(post)
     db.commit()
 
 

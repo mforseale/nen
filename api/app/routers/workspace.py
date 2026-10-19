@@ -13,10 +13,11 @@ from app.activity import ActivityScope, activity_authors
 from app.database import get_db
 from app.models import (Comment, Note, NoteGrant, Pact, PactCheckin,
                         PactDetails, PactParticipant, PactRarity, PactRequest, PactStatus,
-                        PactTopic, PactVisibility, User)
+                        PactTopic, PactVisibility, User, PactBreak, PactTracking)
 from app.profile_data import profile_view
 from app.directions import CATEGORIES, LIMIT, active_counts, pact_category, require_room
 from app.routers.auth import get_current_user
+from app.streaks import tracking_view
 
 router = APIRouter(tags=["workspace"])
 
@@ -55,7 +56,7 @@ def member_pact(db, pact_id, user):
     return pact
 
 
-def pact_view(db, pact, user):
+def pact_view(db, pact, user, utc_offset_minutes=None):
     details = db.get(PactDetails, pact.id)
     days = db.scalars(select(PactCheckin.day).where(PactCheckin.pact_id == pact.id, PactCheckin.user_id == user.id).order_by(PactCheckin.day)).all()
     members = db.scalars(select(User).join(PactParticipant, User.id == PactParticipant.user_id).where(PactParticipant.pact_id == pact.id)).all()
@@ -66,7 +67,7 @@ def pact_view(db, pact, user):
             "can_manage": pact.creator_id == user.id,
             "template_id": details.template_id if details else None, "duration_days": duration,
             "category": pact_category(db, pact, details), "is_custom": not pact.is_joint and not (details and details.template_id),
-            "checkins": days, "progress": min(100, round(len(days) / duration * 100)) if duration else None,
+            "checkins": days, **tracking_view(db, pact, user.id, utc_offset_minutes),
             "members": [public_user(m) for m in members]}
 
 
@@ -87,9 +88,9 @@ def catalog():
 
 
 @router.get("/my/pacts")
-def my_pacts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+def my_pacts(utc_offset_minutes: int | None = Query(default=None, ge=-720, le=840), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     pacts = db.scalars(select(Pact).join(PactParticipant).where(PactParticipant.user_id == user.id).order_by(Pact.created_at.desc())).all()
-    return [pact_view(db, pact, user) for pact in pacts]
+    return [pact_view(db, pact, user, utc_offset_minutes) for pact in pacts]
 
 
 @router.get("/my/pacts/capacity")
@@ -117,6 +118,7 @@ class PersonalPactInput(CategoryInput):
     title: str = Field(min_length=3, max_length=150)
     description: str = Field(min_length=10, max_length=5000)
     rarity: Literal["common", "rare", "epic", "legendary"] = "common"
+    utc_offset_minutes: int = Field(default=0, ge=-720, le=840)
 
 
 @router.post("/my/pacts", status_code=201)
@@ -134,9 +136,10 @@ def create_personal_pact(payload: PersonalPactInput, user: User = Depends(get_cu
     db.flush()
     db.add_all([PactDetails(pact_id=pact.id, duration_days=(end.date() - start.date()).days if end else None),
                 PactTopic(pact_id=pact.id, category=payload.category),
+                PactTracking(pact_id=pact.id, user_id=user.id, started_at=start, utc_offset_minutes=payload.utc_offset_minutes),
                 PactParticipant(pact_id=pact.id, user_id=user.id, role="creator")])
     db.commit()
-    return pact_view(db, pact, user)
+    return pact_view(db, pact, user, payload.utc_offset_minutes)
 
 
 def lock_pact_members(db, pact):
@@ -180,6 +183,27 @@ def cancel_pact(pact_id: int, user: User = Depends(get_current_user), db: Sessio
 class CheckinInput(Input):
     day: date
     utc_offset_minutes: int = Field(default=0, ge=-720, le=840)
+
+
+@router.post("/my/pacts/{pact_id}/break")
+def report_break(pact_id: int, payload: CheckinInput, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    lock_user(db, user.id)
+    pact = member_pact(db, pact_id, user)
+    now = datetime.now(timezone.utc)
+    today = (now + timedelta(minutes=payload.utc_offset_minutes)).date()
+    if payload.day != today:
+        raise HTTPException(422, "Прервать серию можно только за сегодняшний день")
+    if pact.status != PactStatus.active or pact.deadline and now >= pact.deadline.replace(tzinfo=timezone.utc):
+        raise HTTPException(409, "Пакт сейчас не активен или его срок истёк")
+    tracking = db.get(PactTracking, (pact.id, user.id))
+    if not tracking:
+        tracking = PactTracking(pact_id=pact.id, user_id=user.id, started_at=now, utc_offset_minutes=payload.utc_offset_minutes)
+        db.add(tracking)
+    tracking.utc_offset_minutes = payload.utc_offset_minutes
+    if not db.scalar(select(PactBreak.id).where(PactBreak.pact_id == pact.id, PactBreak.user_id == user.id, PactBreak.day == today)):
+        db.add(PactBreak(pact_id=pact.id, user_id=user.id, day=today))
+    db.commit()
+    return pact_view(db, pact, user, payload.utc_offset_minutes)
 
 
 @router.post("/my/pacts/checkin-all")
@@ -256,6 +280,7 @@ class JointInput(CategoryInput):
     title: str = Field(min_length=3, max_length=150)
     description: str = Field(min_length=10, max_length=5000)
     duration_days: int = Field(ge=1, le=36500)
+    utc_offset_minutes: int = Field(default=0, ge=-720, le=840)
 
 
 @router.post("/requests", status_code=201)
@@ -271,7 +296,7 @@ def send_request(payload: JointInput, user: User = Depends(get_current_user), db
     pact = Pact(title=payload.title, description=payload.description, creator_id=user.id, rarity=PactRarity(rarity), is_joint=True, status=PactStatus.draft, visibility=PactVisibility.private)
     db.add(pact)
     db.flush()
-    db.add_all([PactDetails(pact_id=pact.id, duration_days=payload.duration_days), PactTopic(pact_id=pact.id, category=payload.category), PactParticipant(pact_id=pact.id, user_id=user.id, role="creator"), PactRequest(pact_id=pact.id, sender_id=user.id, recipient_id=recipient.id)])
+    db.add_all([PactDetails(pact_id=pact.id, duration_days=payload.duration_days), PactTopic(pact_id=pact.id, category=payload.category), PactParticipant(pact_id=pact.id, user_id=user.id, role="creator"), PactRequest(pact_id=pact.id, sender_id=user.id, recipient_id=recipient.id), PactTracking(pact_id=pact.id, user_id=user.id, started_at=pact.created_at, utc_offset_minutes=payload.utc_offset_minutes)])
     db.commit()
     return {"id": pact.id, "status": "pending"}
 
@@ -289,6 +314,7 @@ def requests(user: User = Depends(get_current_user), db: Session = Depends(get_d
 
 class Decision(Input):
     accept: bool
+    utc_offset_minutes: int = Field(default=0, ge=-720, le=840)
 
 
 @router.post("/requests/{request_id}/respond")
@@ -315,6 +341,12 @@ def respond(request_id: int, payload: Decision, user: User = Depends(get_current
         pact.created_at = datetime.now(timezone.utc)
         pact.deadline = pact.created_at + timedelta(days=db.get(PactDetails, pact.id).duration_days)
         db.add(PactParticipant(pact_id=pact.id, user_id=user.id))
+        for member_id in (item.sender_id, item.recipient_id):
+            tracking = db.get(PactTracking, (pact.id, member_id)) or PactTracking(pact_id=pact.id, user_id=member_id)
+            tracking.started_at = pact.created_at
+            if member_id == item.recipient_id:
+                tracking.utc_offset_minutes = payload.utc_offset_minutes
+            db.add(tracking)
     db.commit()
     return {"status": decision}
 

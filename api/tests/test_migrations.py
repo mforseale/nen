@@ -23,7 +23,7 @@ from sqlalchemy import CheckConstraint, MetaData, create_engine, inspect
 
 from app.database import Base
 from app.db_admin import database_path, database_status, migrate_database, rehearse_baseline
-from app.migrations import API_ROOT, BASELINE, migration_config, require_schema_at_revision
+from app.migrations import API_ROOT, BASELINE, head_revision, migration_config, require_schema_at_revision
 from app.sqlite_backup import backup_database, digest, restore_backup, verify_backup
 from test_persistence import isolated_app
 
@@ -41,17 +41,19 @@ class MigrationTests(unittest.TestCase):
 
     def legacy(self):
         engine = create_engine(self.url)
-        Base.metadata.create_all(engine)
+        with engine.begin() as connection:
+            command.upgrade(migration_config(connection), BASELINE)
+            connection.exec_driver_sql("DROP TABLE alembic_version")
         engine.dispose()
 
     def test_empty_database_migrates_matches_models_and_repeat_is_idempotent(self):
         result = migrate_database(self.url, self.backups)
-        self.assertEqual(result, {"revision": BASELINE, "changed": True, "backup": None, "adopted": False})
+        self.assertEqual(result, {"revision": head_revision(), "changed": True, "backup": None, "adopted": False})
         engine = create_engine(self.url)
         try:
             with engine.connect() as connection:
                 self.assertEqual(compare_metadata(MigrationContext.configure(connection), Base.metadata), [])
-                require_schema_at_revision(connection, BASELINE)
+                require_schema_at_revision(connection, head_revision())
         finally:
             engine.dispose()
         before = digest(self.path)
@@ -69,7 +71,7 @@ class MigrationTests(unittest.TestCase):
         self.assertFalse(self.backups.exists())
 
     def test_adopt_backup_restore_preserve_login_pact_progress_and_binary_attachment(self):
-        self.legacy()
+        migrate_database(self.url, self.backups)
         engine = create_engine(self.url)
         try:
             with TestClient(isolated_app(engine)) as client:
@@ -85,6 +87,10 @@ class MigrationTests(unittest.TestCase):
                 asset = post.json()["attachments"][0]
         finally:
             engine.dispose()
+        with closing(sqlite3.connect(self.path)) as connection, connection:
+            for table in ("profile_details", "profile_post_likes", "profile_post_comments", "pact_breaks", "pact_tracking"):
+                connection.execute("DROP TABLE " + table)
+            connection.execute("DELETE FROM alembic_version")
         result = migrate_database(self.url, self.backups, adopt_existing=True)
         self.assertTrue(result["adopted"])
         backup = Path(result["backup"])
@@ -120,8 +126,9 @@ class MigrationTests(unittest.TestCase):
                 path = self.root / f"drift-{index}.sqlite3"
                 url = "sqlite:///" + path.as_posix()
                 engine = create_engine(url)
-                Base.metadata.create_all(engine)
                 with engine.begin() as connection:
+                    command.upgrade(migration_config(connection), BASELINE)
+                    connection.exec_driver_sql("DROP TABLE alembic_version")
                     connection.exec_driver_sql(statement)
                 engine.dispose()
                 before = digest(path)
@@ -132,8 +139,11 @@ class MigrationTests(unittest.TestCase):
 
     def test_missing_check_constraint_is_refused(self):
         metadata = MetaData()
-        for table in Base.metadata.sorted_tables:
-            table.to_metadata(metadata)
+        reference = create_engine("sqlite://")
+        with reference.begin() as connection:
+            command.upgrade(migration_config(connection), BASELINE)
+            metadata.reflect(connection, only=lambda name, _: name != "alembic_version")
+        reference.dispose()
         friendships = metadata.tables["friendships"]
         for constraint in list(friendships.constraints):
             if isinstance(constraint, CheckConstraint):
@@ -226,32 +236,53 @@ class MigrationTests(unittest.TestCase):
             database_status(self.url)
         self.assertFalse(self.path.exists())
 
-    def test_baseline_rehearsal_preserves_private_blob_and_never_changes_the_live_source(self):
+    def test_baseline_upgrade_preserves_blob_and_starts_tracking_only_at_upgrade(self):
         self.legacy()
+        old_created = "2025-01-01 12:00:00"
         with closing(sqlite3.connect(self.path)) as connection, connection:
             connection.execute("INSERT INTO users VALUES (1, 'owner', 'owner@example.test', 'Original', CURRENT_TIMESTAMP)")
             connection.execute("INSERT INTO profile_avatars VALUES (1, ?, 'image/png', 'version1')", (b"\x00private-blob\xff",))
-        original_hash = digest(self.path)
-        result = rehearse_baseline(self.url, self.backups, self.root / "rehearsal")
-        self.assertTrue(result["source_opened_readonly"])
-        self.assertTrue(result["original_rows_and_blobs_preserved"])
-        self.assertEqual(result["revision"], BASELINE)
-        self.assertEqual(digest(self.path), original_hash)
-        self.assertFalse(database_status(self.url)["ready"])
-        restored_url = "sqlite:///" + Path(result["rehearsal_database"]).as_posix()
-        self.assertTrue(database_status(restored_url)["ready"])
-        with closing(sqlite3.connect(result["rehearsal_database"])) as connection:
+            connection.execute("INSERT INTO pacts (id,title,rarity,status,visibility,is_joint,created_at,updated_at,creator_id) VALUES (1,'Past pact','legendary','active','private',0,?,?,1)", (old_created,old_created))
+            connection.execute("INSERT INTO pact_participants (id,pact_id,user_id,role,joined_at) VALUES (1,1,1,'creator',?)", (old_created,))
+            connection.execute("INSERT INTO pact_checkins (id,pact_id,user_id,day) VALUES (1,1,1,'2025-01-02')")
+        result = migrate_database(self.url, self.backups, adopt_existing=True)
+        self.assertEqual(result["revision"], head_revision())
+        with closing(sqlite3.connect(self.path)) as connection:
             self.assertEqual(connection.execute("SELECT content FROM profile_avatars").fetchone(), (b"\x00private-blob\xff",))
+            self.assertEqual(connection.execute("SELECT day FROM pact_checkins").fetchall(), [("2025-01-02",)])
+            started = datetime.fromisoformat(connection.execute("SELECT started_at FROM pact_tracking").fetchone()[0])
+            self.assertEqual(started.date(), datetime.now(timezone.utc).date())
+            self.assertEqual(connection.execute("SELECT count(*) FROM pact_breaks").fetchone(), (0,))
+        backup = Path(result["backup"])
+        verify_backup(backup)
+        with closing(sqlite3.connect(backup)) as connection:
+            self.assertNotIn("pact_tracking", {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")})
 
-    def test_failed_rehearsal_keeps_the_live_schema_and_values_untouched(self):
+    def test_versioned_baseline_upgrade_uses_backup_and_keeps_original_rows(self):
+        engine = create_engine(self.url)
+        with engine.begin() as connection:
+            command.upgrade(migration_config(connection), BASELINE)
+            connection.exec_driver_sql("INSERT INTO users VALUES (1, 'saved', 'saved@example.test', 'Original', CURRENT_TIMESTAMP)")
+            connection.exec_driver_sql("INSERT INTO profile_avatars VALUES (1, X'0042FF', 'image/png', 'version1')")
+        engine.dispose()
+        result = migrate_database(self.url, self.backups)
+        self.assertFalse(result["adopted"])
+        self.assertTrue(result["changed"])
+        self.assertEqual(result["revision"], head_revision())
+        with closing(sqlite3.connect(self.path)) as connection:
+            self.assertEqual(connection.execute("SELECT full_name FROM users").fetchone(), ("Original",))
+            self.assertEqual(connection.execute("SELECT content FROM profile_avatars").fetchone(), (b"\x00B\xff",))
+        with closing(sqlite3.connect(result["backup"])) as connection:
+            self.assertEqual(connection.execute("SELECT version_num FROM alembic_version").fetchone(), (BASELINE,))
+        self.assertTrue(database_status(self.url)["ready"])
+
+    def test_one_time_baseline_rehearsal_now_refuses_new_head_without_touching_source(self):
         self.legacy()
-        with closing(sqlite3.connect(self.path)) as connection, connection:
-            connection.execute("ALTER TABLE users ADD COLUMN unexpected TEXT")
         original_hash = digest(self.path)
-        with self.assertRaisesRegex(ValueError, "Schema does not match"):
+        with self.assertRaisesRegex(ValueError, "baseline"):
             rehearse_baseline(self.url, self.backups, self.root / "rehearsal")
         self.assertEqual(digest(self.path), original_hash)
-        self.assertEqual(len(list(self.backups.glob("nen-baseline-rehearsal-*.sqlite3"))), 1)
+        self.assertFalse(self.backups.exists())
 
     def test_one_time_baseline_mode_refuses_future_migrations_before_touching_database(self):
         from app.db_admin import main

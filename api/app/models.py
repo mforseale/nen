@@ -267,3 +267,48 @@ class ProfileFile(Base):
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)
     visibility: Mapped[str] = mapped_column(String(20), default="private")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class PactTracking(Base):
+    __tablename__ = "pact_tracking"
+    pact_id: Mapped[int] = mapped_column(ForeignKey("pacts.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    utc_offset_minutes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
+class PactBreak(Base):
+    __tablename__ = "pact_breaks"
+    __table_args__ = (UniqueConstraint("pact_id", "user_id", "day"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    pact_id: Mapped[int] = mapped_column(ForeignKey("pacts.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    day: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ProfileDetails(Base):
+    __tablename__ = "profile_details"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    status_text: Mapped[str] = mapped_column(String(280), default="")
+    status_audio_id: Mapped[int | None] = mapped_column(ForeignKey("profile_files.id"))
+    location: Mapped[str] = mapped_column(String(120), default="")
+    interests: Mapped[str] = mapped_column(String(500), default="")
+    website: Mapped[str] = mapped_column(String(2000), default="")
+    about: Mapped[str] = mapped_column(Text, default="")
+
+
+class ProfilePostLike(Base):
+    __tablename__ = "profile_post_likes"
+    post_id: Mapped[int] = mapped_column(ForeignKey("profile_posts.id"), primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+
+class ProfilePostComment(Base):
+    __tablename__ = "profile_post_comments"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("profile_posts.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

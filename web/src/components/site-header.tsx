@@ -109,7 +109,7 @@ export default function SiteHeader() {
           { href: "/friends", label: "Друзья", icon: "friends" },
         ].map(({ href, label, icon }) => {
           const active = pathname === href || (href !== "/" && pathname.startsWith(href));
-          return <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}><Icon name={icon} size={18}/><span>{label}</span></Link>;
+          return <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}><Icon name={icon} size={24}/><span>{label}</span></Link>;
         })}
       </nav>
       <div className="nav-search" ref={searchRef} onKeyDown={searchKeyboard} onBlur={event => {

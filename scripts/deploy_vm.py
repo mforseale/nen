@@ -1,10 +1,12 @@
 """Fixed-path Nen deployment: one working version and one previous copy.
 
-Run as root on the existing VM. Database schema changes are deliberately refused
-in this first CD stage; perform reviewed migrations separately before deploying.
+Run as root on the existing VM. Normal CD refuses database schema changes.
+The explicit profile-upgrade command coordinates the reviewed 0001 -> 0002 change.
 """
 import argparse
+from contextlib import closing
 from contextlib import contextmanager
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -21,6 +23,8 @@ import urllib.request
 from runtime_bundle import unpack
 
 SERVICES = ("nen-api.service", "nen-web.service")
+PROFILE_FROM = "20261019_0001"
+PROFILE_TO = "20261019_0002"
 WEB_OVERRIDE = """[Service]
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=3000
@@ -56,11 +60,96 @@ def health():
 
 
 def schema_revision(database):
-    with sqlite3.connect(database.as_uri() + "?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
         rows = connection.execute("SELECT version_num FROM alembic_version").fetchall()
     if len(rows) != 1:
         raise ValueError("Expected one registered Alembic revision")
     return rows[0][0]
+
+
+def table_fingerprints(database, tables=None):
+    """Compare original rows/BLOBs without logging their contents."""
+    result = {}
+    with closing(sqlite3.connect(database.as_uri() + "?mode=ro", uri=True)) as connection:
+        connection.execute("BEGIN")
+        if tables is None:
+            tables = [row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
+                "AND name != 'alembic_version' ORDER BY name")]
+        for table in tables:
+            quoted = '"' + table.replace('"', '""') + '"'
+            cursor = connection.execute("SELECT * FROM " + quoted + " ORDER BY rowid")
+            checksum = hashlib.sha256()
+            for row in cursor:
+                encoded = repr(tuple(row)).encode("utf-8")
+                checksum.update(len(encoded).to_bytes(8, "big") + encoded)
+            result[table] = ([column[0] for column in cursor.description], checksum.hexdigest())
+    return result
+
+
+def verify_snapshot(snapshot):
+    from runtime_bundle import digest
+    manifest = snapshot.with_suffix(snapshot.suffix + ".json")
+    if snapshot.is_symlink() or manifest.is_symlink():
+        raise ValueError("Snapshot files must not be symlinks")
+    metadata = json.loads(manifest.read_text())
+    if (metadata.get("format_version") != 1 or metadata.get("filename") != snapshot.name
+            or metadata.get("bytes") != snapshot.stat().st_size or metadata.get("sha256") != digest(snapshot)):
+        raise ValueError("Snapshot verification failed")
+    with closing(sqlite3.connect(snapshot.as_uri() + "?mode=ro", uri=True)) as connection:
+        if connection.execute("PRAGMA quick_check").fetchall() != [("ok",)]:
+            raise ValueError("Snapshot integrity check failed")
+        if connection.execute("PRAGMA foreign_key_check").fetchone() is not None:
+            raise ValueError("Snapshot foreign keys check failed")
+
+
+def restore_transition_snapshot(snapshot, database):
+    """Only called before public access resumes, with both app services stopped.
+
+    SQLite's backup API restores into the existing file and handles WAL correctly;
+    no raw copy/unlink of a potentially journalled live SQLite file is used.
+    """
+    verify_snapshot(snapshot)
+    if database.is_symlink() or schema_revision(snapshot) != PROFILE_FROM:
+        raise ValueError("Unexpected database recovery source/destination")
+    with closing(sqlite3.connect(snapshot.as_uri() + "?mode=ro", uri=True)) as source:
+        with closing(sqlite3.connect(database.as_uri() + "?mode=rw", uri=True)) as destination:
+            source.backup(destination)
+            if (destination.execute("PRAGMA quick_check").fetchall() != [("ok",)]
+                    or destination.execute("PRAGMA foreign_key_check").fetchone() is not None):
+                raise ValueError("Recovered database integrity check failed")
+    if schema_revision(database) != PROFILE_FROM or table_fingerprints(database) != table_fingerprints(snapshot):
+        raise ValueError("Recovered database differs from the pre-upgrade snapshot")
+
+
+def take_snapshot(api, database, directory):
+    output = app_run(api, "-m", "app.sqlite_backup", "backup", "--source", str(database),
+                     "--directory", str(directory), "--label", "profile-upgrade", capture=True)
+    snapshot = Path(json.loads(output.stdout)["backup"])
+    if snapshot.parent != directory or not snapshot.is_file():
+        raise ValueError("Unexpected snapshot location")
+    verify_snapshot(snapshot)
+    return snapshot
+
+
+def migrate_profile(api, database, backup_directory, fingerprints):
+    app_run(api, "-m", "app.db_admin", "migrate", "--backup-dir", str(backup_directory),
+            database="sqlite:///" + database.as_posix(), capture=True)
+    app_run(api, "-m", "app.db_admin", "check", database="sqlite:///" + database.as_posix(), capture=True)
+    if schema_revision(database) != PROFILE_TO or table_fingerprints(database, fingerprints) != fingerprints:
+        raise ValueError("Migration did not preserve original rows and BLOBs")
+
+
+def rehearse_profile(api, database, work):
+    directory = work / "rehearsal"
+    directory.mkdir(mode=0o700)
+    shutil.chown(directory, user="nen", group="nen")
+    snapshot = take_snapshot(api, database, directory)
+    restored = directory / "check.sqlite3"
+    app_run(api, "-m", "app.sqlite_backup", "restore", "--source", str(snapshot),
+            "--destination", str(restored), capture=True)
+    migrate_profile(api, restored, directory, table_fingerprints(snapshot))
+    print("Migration rehearsal verified: original rows and BLOBs preserved.", flush=True)
 
 
 class Installation:
@@ -95,14 +184,17 @@ class Installation:
         elif self.override.exists():
             self.override.unlink()
 
-    def switch(self, candidate, finish, revision):
+    def switch(self, candidate, finish, revision, database_backup=None):
         """Keep old files/dependencies until health succeeds; reverse partial moves."""
         candidate = Path(candidate)
         old = candidate.parent / "old"
         old.mkdir(mode=0o700)
         self.snapshot_override(old / "config")
-        (old / "previous.json").write_text(json.dumps({"schema_revision": revision}) + "\n")
-        self.marker.write_text(json.dumps({"work": str(candidate.parent), "schema_revision": revision}) + "\n")
+        recovery = {"schema_revision": revision}
+        if database_backup is not None:
+            recovery["database_backup"] = str(database_backup)
+        (old / "previous.json").write_text(json.dumps(recovery) + "\n")
+        self.marker.write_text(json.dumps({"work": str(candidate.parent), **recovery}) + "\n")
         try:
             for name in ("api", "web"):
                 (self.root / name).rename(old / name)
@@ -209,7 +301,7 @@ def interruption_guard():
             signal.signal(sig, handler)
 
 
-def deploy(archive=None, sha=None, rollback=False, expected_commit=None):
+def deploy(archive=None, sha=None, rollback=False, expected_commit=None, profile_upgrade=False):
     import fcntl
     installation = Installation()
     installation.validate()
@@ -225,6 +317,10 @@ def deploy(archive=None, sha=None, rollback=False, expected_commit=None):
         if database.is_symlink():
             raise ValueError("The live database must not be a symlink")
         revision = schema_revision(database)
+        if profile_upgrade:
+            if rollback or revision != PROFILE_FROM:
+                raise ValueError("The reviewed profile upgrade requires database revision 20261019_0001")
+            run("systemctl", "is-active", "--quiet", "caddy.service")
         work = Path(tempfile.mkdtemp(prefix=".nen-deploy-", dir="/srv"))
         work.chmod(0o750)
         shutil.chown(work, group="nen")
@@ -245,24 +341,44 @@ def deploy(archive=None, sha=None, rollback=False, expected_commit=None):
                 print(f"Preparing {metadata['commit']}", flush=True)
                 protect_candidate(candidate)
                 prepare(candidate / "api")
-                status = json.loads(app_run(candidate / "api", "-m", "app.db_admin", "check", capture=True).stdout)
-                if not status["ready"]:
+                status = json.loads(app_run(candidate / "api", "-m", "app.db_admin", "status", capture=True).stdout)
+                if profile_upgrade:
+                    if status["head"] != PROFILE_TO or status["revision"] != [PROFILE_FROM]:
+                        raise ValueError("This command permits only the reviewed 0001 -> 0002 profile migration")
+                    rehearse_profile(candidate / "api", database, work)
+                elif not status["ready"]:
                     raise ValueError("Schema migration must be reviewed and applied separately first")
-                shutil.rmtree(candidate / "api/.venv")
+                if not profile_upgrade:
+                    shutil.rmtree(candidate / "api/.venv")
             if rollback:
                 protect_candidate(candidate)
             stopped = False
+            public_stopped = False
+            safe_to_publish = False
+            snapshot = None
             try:
+                if profile_upgrade:
+                    public_stopped = True
+                    run("systemctl", "stop", "caddy.service")
                 stopped = True
                 run("systemctl", "stop", *reversed(SERVICES))
                 if schema_revision(database) != revision:
                     raise ValueError("The database revision changed during preparation")
+                if profile_upgrade:
+                    snapshot = take_snapshot(candidate / "api", database, Path("/var/backups/nen"))
+                    print(f"Pre-upgrade snapshot: {snapshot}", flush=True)
+                    fingerprints = table_fingerprints(snapshot)
+                    shutil.rmtree(candidate / "api/.venv")
 
                 def finish():
+                    migration_started = False
                     try:
                         if not rollback:
                             prepare(installation.root / "api")
                             shutil.copy2(candidate / "runtime.json", installation.root / "api/runtime.json")
+                        if profile_upgrade:
+                            migration_started = True
+                            migrate_profile(installation.root / "api", database, work / "rehearsal", fingerprints)
                         run("systemctl", "daemon-reload")
                         run("systemctl", "start", *SERVICES)
                         health()
@@ -271,16 +387,26 @@ def deploy(archive=None, sha=None, rollback=False, expected_commit=None):
                             run("systemctl", "stop", *reversed(SERVICES))
                         except BaseException as stop_error:
                             raise RecoveryRequired("Could not stop failed services; deployment journal retained") from stop_error
+                        if migration_started:
+                            try:
+                                restore_transition_snapshot(snapshot, database)
+                            except BaseException as recovery_error:
+                                raise RecoveryRequired("Database recovery failed; services remain stopped; inspect deployment journal") from recovery_error
                         raise
 
-                installation.switch(candidate, finish, revision)
+                installation.switch(candidate, finish, revision, database_backup=snapshot)
                 stopped = False
+                safe_to_publish = True
             finally:
                 if stopped and not installation.marker.exists():
                     run("systemctl", "daemon-reload")
                     run("systemctl", "start", *SERVICES)
                     health()
-            print("Deployment verified. Previous application: /srv/nen-previous. Database unchanged.", flush=True)
+                    safe_to_publish = True
+                if public_stopped and safe_to_publish:
+                    run("systemctl", "start", "caddy.service")
+            message = "Database upgraded to 20261019_0002." if profile_upgrade else "Database unchanged."
+            print(f"Deployment verified. Previous application: /srv/nen-previous. {message}", flush=True)
         finally:
             # A kill/power loss or failed recovery leaves the marker and work for inspection.
             if not installation.marker.exists():
@@ -294,6 +420,14 @@ if __name__ == "__main__":
     install.add_argument("archive", type=Path)
     install.add_argument("--sha256", required=True)
     install.add_argument("--expected-commit")
+    upgrade = commands.add_parser("install-profile-upgrade", help="Root-only reviewed 0001 -> 0002 transition with rehearsal and recovery")
+    upgrade.add_argument("archive", type=Path)
+    upgrade.add_argument("--sha256", required=True)
+    upgrade.add_argument("--expected-commit", required=True)
     commands.add_parser("rollback")
     args = parser.parse_args()
-    deploy(rollback=True) if args.command == "rollback" else deploy(args.archive, args.sha256, expected_commit=args.expected_commit)
+    if args.command == "rollback":
+        deploy(rollback=True)
+    else:
+        deploy(args.archive, args.sha256, expected_commit=args.expected_commit,
+               profile_upgrade=args.command == "install-profile-upgrade")

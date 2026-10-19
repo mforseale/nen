@@ -1,47 +1,106 @@
-"use client";
+﻿"use client";
 /* eslint-disable @next/next/no-img-element -- Local upload previews do not use the shared image optimizer. */
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { refreshData } from "@/lib/api";
-import { audiences,type ProfileFile,type ProfilePost } from "@/lib/community";
+import { useAuth } from "@/lib/auth";
+import { audiences, type Audience, type ProfileFile, type ProfilePost } from "@/lib/community";
 import { fileIcon, fileSize, MAX_FILE_SIZE, MAX_FILES, MAX_POST_SIZE, multipart } from "@/lib/profile-files";
+import { deletePostDraft, loadPostDraft, postDraftKey, savePostDraft, type PostDraft } from "@/lib/post-drafts";
 import { ErrorMessage, Icon, Modal } from "./ui";
+import { PostTextEditor } from "./post-rich-text";
 
 type Pending = { key: string; file: File; preview: string | null };
-export function PostEditor({ post, onClose }: { post?: ProfilePost; onClose: () => void }) {
-  const [retained,setRetained] = useState<ProfileFile[]>(post?.attachments ?? []);
-  const [pending,setPending] = useState<Pending[]>([]); const [removeImage,setRemoveImage] = useState(false);
-  const [error,setError] = useState<string | null>(null); const [busy,setBusy] = useState(false);
-  const previews = useRef(new Set<string>());
-  useEffect(() => {const urls = previews.current;return () => {urls.forEach(url => URL.revokeObjectURL(url));};},[]);
+export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost; onClose: () => void }) {
+  // A background feed refresh must never reset an editor that is already open.
+  const [post] = useState(initialPost);
+  const { user } = useAuth();
+  const key = user ? postDraftKey(user.id, post?.id) : null;
+  const [title, setTitle] = useState(post?.title ?? ""), [content, setContent] = useState(post?.content ?? ""), [url, setUrl] = useState(post?.url ?? "");
+  const [visibility, setVisibility] = useState<Audience>(post?.visibility ?? "private");
+  const [retained, setRetained] = useState<ProfileFile[]>(post?.attachments ?? []);
+  const [pending, setPending] = useState<Pending[]>([]), [removeImage, setRemoveImage] = useState(false), [pinNew, setPinNew] = useState(false);
+  const [error, setError] = useState<string | null>(null), [busy, setBusy] = useState(false), [readyKey, setReadyKey] = useState<string | null>(null);
+  const ready = !!key && readyKey === key;
+  const [draftMessage, setDraftMessage] = useState("Восстанавливаем черновик…"), [draftError, setDraftError] = useState<string | null>(null);
+  const previews = useRef(new Set<string>()), picker = useRef<HTMLInputElement>(null), published = useRef(false);
+  useEffect(() => { const urls = previews.current; return () => { urls.forEach(value => URL.revokeObjectURL(value)); }; }, []);
+  useEffect(() => {
+    let active = true;
+    if (!key) return;
+    loadPostDraft(key).then(draft => {
+      if (!active) return;
+      if (draft?.version === 1) {
+        setTitle(draft.title); setContent(draft.content); setUrl(draft.url); setVisibility(draft.visibility);
+        setRetained((post?.attachments ?? []).filter(file => draft.retainedIds.includes(file.id)));
+        setRemoveImage(draft.removeImage); setPinNew(draft.pinNew);
+        setPending(draft.files.map(file => {
+          const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
+          if (preview) previews.current.add(preview);
+          return { key: `${file.name}:${file.size}:${file.lastModified}`, file, preview };
+        }));
+        setDraftMessage(draft.missingFiles ? "Восстановлен текст черновика. Браузер не сохранил файлы — прикрепи их повторно." : "Черновик восстановлен — включая прикреплённые файлы.");
+      } else setDraftMessage("Черновик сохраняется на этом устройстве.");
+      setReadyKey(key);
+    }).catch(() => { if (active) { setReadyKey(key); setDraftError("Не удалось открыть черновик. Сохранение браузером может быть ограничено."); } });
+    return () => { active = false; };
+  }, [key, post]);
+  const snapshot = useCallback((): PostDraft => ({ version: 1, updatedAt: Date.now(), title, content, url, visibility, retainedIds: retained.map(file => file.id), files: pending.map(item => item.file), removeImage, pinNew }), [title, content, url, visibility, retained, pending, removeImage, pinNew]);
+  useEffect(() => {
+    if (!ready || !key || published.current) return;
+    let active = true;
+    savePostDraft(key, snapshot()).then(() => { if (active) setDraftError(null); }).catch(error => { if (active) setDraftError((error as Error).message); });
+    return () => { active = false; };
+  }, [key, ready, snapshot]);
+  async function close() {
+    if (busy) return;
+    if (key && ready && !published.current) {
+      try { await savePostDraft(key, snapshot()); }
+      catch (error) { setDraftError((error as Error).message); setError("Редактор оставлен открытым, чтобы сохранить твои файлы. Опубликуй пост или освободи место в браузере."); return; }
+    }
+    onClose();
+  }
   function select(files: FileList | null) {
     if (!files) return;
     const selected = Array.from(files).filter(file => !pending.some(item => item.key === `${file.name}:${file.size}:${file.lastModified}`));
-    if (retained.length + pending.length + selected.length > MAX_FILES) {setError("В одном посте может быть до 10 файлов.");return;}
-    if (selected.some(file => file.size > MAX_FILE_SIZE)) {setError("Один файл должен быть не больше 25 МиБ.");return;}
-    if (retained.reduce((sum,file)=>sum+file.size,0) + [...pending.map(item=>item.file),...selected].reduce((sum,file)=>sum+file.size,0) > MAX_POST_SIZE) {setError("Суммарный размер файлов поста — до 50 МиБ.");return;}
-    setError(null);setPending([...pending,...selected.map(file => {
+    if (retained.length + pending.length + selected.length + Number(!!post?.image_url && !removeImage) > MAX_FILES) { setError("В одном посте может быть до 10 файлов."); return; }
+    if (selected.some(file => file.size > MAX_FILE_SIZE)) { setError("Один файл должен быть не больше 25 МиБ."); return; }
+    if (retained.reduce((sum, file) => sum + file.size, 0) + [...pending.map(item => item.file), ...selected].reduce((sum, file) => sum + file.size, 0) > MAX_POST_SIZE) { setError("Суммарный размер файлов поста — до 50 МиБ."); return; }
+    setError(null); setPending([...pending, ...selected.map(file => {
       const preview = /^image\/(png|jpeg|webp|gif)$/.test(file.type) ? URL.createObjectURL(file) : null;
       if (preview) previews.current.add(preview);
-      return {key:`${file.name}:${file.size}:${file.lastModified}`,file,preview};
+      return { key: `${file.name}:${file.size}:${file.lastModified}`, file, preview };
     })]);
   }
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();const form = new FormData(event.currentTarget);setBusy(true);setError(null);
-    const body = new FormData();body.set("payload",JSON.stringify({title:form.get("title"),content:form.get("content"),url:form.get("url"),visibility:form.get("visibility"),keep_ids:retained.map(file=>file.id),pin_new:form.get("pin_new") === "on",remove_image:removeImage}));
-    pending.forEach(item=>body.append("files",item.file));
-    try {await multipart(post ? `/my/feed/${post.id}` : "/my/feed",post ? "PUT" : "POST",body);refreshData();onClose();}
-    catch(error) {setError((error as Error).message);} finally {setBusy(false);}
+    event.preventDefault(); setBusy(true); setError(null);
+    if (key) await savePostDraft(key, snapshot()).catch(error => setDraftError((error as Error).message));
+    const body = new FormData();
+    body.set("payload", JSON.stringify({ title, content, url, visibility, keep_ids: retained.map(file => file.id), pin_new: pinNew, remove_image: removeImage }));
+    pending.forEach(item => body.append("files", item.file));
+    try {
+      await multipart(post ? `/my/feed/${post.id}` : "/my/feed", post ? "PUT" : "POST", body);
+    } catch (error) { setError((error as Error).message + " Черновик остаётся в редакторе."); setBusy(false); return; }
+    // A successful response remains successful if the browser cannot clean its draft.
+    published.current = true;
+    if (key) await deletePostDraft(key).catch(() => {});
+    setBusy(false); refreshData(); onClose();
   }
-  return <Modal title={post ? "Изменить пост" : "Новый пост"} onClose={onClose}><form className="form-stack post-composer" onSubmit={submit}>
-    <label>Заголовок (необязательно)<input name="title" defaultValue={post?.title} maxLength={150} placeholder="О чём этот пост?"/></label>
-    <label>Текст<textarea name="content" defaultValue={post?.content} maxLength={10000} placeholder="Поделись мыслями, впечатлениями или результатом"/></label>
-    <label className="file-drop-label"><Icon name="upload"/><strong>Добавить файлы</strong><span>Картинки, музыка, видео, документы — любые форматы</span><input type="file" multiple disabled={busy} onChange={event=>{select(event.target.files);event.target.value="";}}/></label>
-    <p className="form-caption">До 10 файлов в посте · 25 МиБ на файл · 50 МиБ суммарно. Музыка появится под картинками.</p>
-    {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map(file=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+file.name} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map(item=><div key={item.key}>{item.preview ? <img src={item.preview} alt=""/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : "file"}/>}<span><strong>{item.file.name}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать файл "+item.file.name} onClick={()=>{if(item.preview){URL.revokeObjectURL(item.preview);previews.current.delete(item.preview);}setPending(pending.filter(file=>file.key!==item.key));}}><Icon name="close"/></button></div>)}</div>}
-    {post?.image_url && !removeImage && <div className="post-image-preview"><img src={post.image_url} alt="Картинка из прежней публикации"/><button type="button" className="text-link" onClick={()=>setRemoveImage(true)}>Убрать прежнюю картинку</button></div>}
-    {pending.length > 0 && <label className="composer-pin"><input type="checkbox" name="pin_new"/>Закрепить новые вложения в профиле (до 10 файлов в закрепе)</label>}
-    <label>Ссылка (необязательно)<input type="url" name="url" defaultValue={post?.url} maxLength={2000} placeholder="https://…"/></label>
-    <label>Кто видит<select name="visibility" defaultValue={post?.visibility ?? "private"}>{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><ErrorMessage error={error}/><button className="button button-red full-width" disabled={busy}>{busy ? "Публикуем…" : post ? "Сохранить пост" : "Опубликовать"}<Icon name="arrow"/></button>
+  return <Modal title={post ? "Изменить пост" : "Новый пост"} onClose={()=>{void close();}} className="post-editor-dialog"><form className="form-stack post-composer" onSubmit={submit}>
+    <div className="post-draft-status" role="status"><Icon name={draftError ? "clock" : "check"} size={19}/><span>{draftError || draftMessage}</span></div>
+    <fieldset disabled={busy || !ready} className="post-composer-fields">
+      <label>Заголовок (необязательно)<input name="title" value={title} onChange={event=>setTitle(event.target.value)} maxLength={150} placeholder="О чём этот пост?"/></label>
+      <PostTextEditor value={content} onChange={setContent} disabled={busy || !ready} onAttach={()=>picker.current?.click()}/>
+      <label className="file-drop-label"><Icon name="upload"/><strong>Добавить файлы</strong><span>Изображения, музыка, видео и документы</span><input ref={picker} type="file" multiple disabled={busy || !ready} onChange={event=>{select(event.target.files);event.target.value="";}}/></label>
+      <p className="form-caption">До 10 файлов · 25 МиБ на файл · 50 МиБ на пост. Музыка появится под изображениями.</p>
+      {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map(file=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+file.name} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map(item=><div key={item.key}>{item.preview ? <img src={item.preview} alt=""/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : "file"}/>}<span><strong>{item.file.name}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать файл "+item.file.name} onClick={()=>{if(item.preview){URL.revokeObjectURL(item.preview);previews.current.delete(item.preview);}setPending(pending.filter(file=>file.key!==item.key));}}><Icon name="close"/></button></div>)}</div>}
+      {post?.image_url && !removeImage && <div className="post-image-preview"><img src={post.image_url} alt="Картинка из прежней публикации"/><button type="button" className="text-link" onClick={()=>setRemoveImage(true)}>Убрать прежнюю картинку</button></div>}
+      {pending.length > 0 && <label className="composer-pin"><input type="checkbox" checked={pinNew} onChange={event=>setPinNew(event.target.checked)}/>Закрепить новые вложения в профиле (до 10 файлов)</label>}
+      <label>Ссылка (необязательно)<input type="url" name="url" value={url} onChange={event=>setUrl(event.target.value)} maxLength={2000} placeholder="https://…"/></label>
+      <label>Кто видит<select name="visibility" value={visibility} onChange={event=>setVisibility(event.target.value as Audience)}>{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>
+    </fieldset>
+    <ErrorMessage error={error}/><button className="button button-red full-width" disabled={busy || !ready}>{busy ? "Публикуем…" : post ? "Сохранить пост" : "Опубликовать"}<Icon name="arrow"/></button>
+    <button type="button" className="text-link draft-close" disabled={busy} onClick={()=>{void close();}}>Закрыть и оставить черновик</button>
+    <button type="button" className="text-link draft-close draft-discard" disabled={busy || !ready} onClick={async()=>{published.current=true;if(key)await deletePostDraft(key);onClose();}}>Удалить черновик</button>
   </form></Modal>;
 }

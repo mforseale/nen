@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { API_URL } from "./api";
+import { API_URL, refreshData } from "./api";
 
 export type AuthUser = {
   id: number;
@@ -87,6 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.ok) throw await responseError(response);
     setUser(await response.json() as AuthUser);
     setAuthError(null);
+    refreshData();
   }, []);
 
   const register = useCallback(async (registration: Registration) => {
@@ -99,6 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!response.ok) throw await responseError(response);
     setUser(await response.json() as AuthUser);
     setAuthError(null);
+    refreshData();
   }, []);
 
   const logout = useCallback(async () => {
@@ -108,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     if (!response.ok) throw await responseError(response);
     setUser(null);
+    refreshData();
   }, []);
 
   const refreshUser = useCallback(async () => {

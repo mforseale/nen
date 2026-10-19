@@ -51,7 +51,7 @@ export function Icon({ name, size = 24, className = "" }: { name: string; size?:
 }
 
 export function Shell({ children, home = false }: { children: ReactNode; home?: boolean }) {
-  return <div className={`site-shell ${home ? "home-shell" : ""}`}><Suspense fallback={<header className="site-header"><Link href="/" className="brand">nen.</Link></header>}><SiteHeader/></Suspense><main className={`page-content ${home ? "home-content" : ""}`}>{home && <div className="home-background" aria-hidden="true"/>}{children}</main><footer className="site-footer"><Link href="/" className="footer-logo">Nen<span>®</span></Link></footer></div>;
+  return <div className={`site-shell ${home ? "home-shell" : ""}`}>{home && <div className="home-background" aria-hidden="true"/>}<Suspense fallback={<header className="site-header"><Link href="/" className="brand">nen.</Link></header>}><SiteHeader/></Suspense><main className={`page-content ${home ? "home-content" : ""}`}>{children}</main><footer className="site-footer"><Link href="/" className="footer-logo">Nen<span>®</span></Link></footer></div>;
 }
 
 export function PageTitle({ eyebrow, title, children }: { eyebrow?: string; title: string; children?: ReactNode }) {
@@ -64,8 +64,23 @@ export function Loading() { return <div className="loading" role="status"><span/
 
 export function Modal({ title, children, onClose, className = "" }: { title: string; children: ReactNode; onClose: () => void; className?: string }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const backdropPress = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => { const el = dialog.current; el?.showModal(); return () => {el?.close();}; }, []);
-  return <dialog ref={dialog} className={"nen-dialog "+className} onCancel={event => {event.stopPropagation();onClose();}} onClick={e => { const rect=e.currentTarget.getBoundingClientRect(); if(e.target===e.currentTarget && (e.clientX<rect.left || e.clientX>rect.right || e.clientY<rect.top || e.clientY>rect.bottom)) onClose(); }} aria-label={title}><div className="dialog-header"><p className="eyebrow">NEN / ОБЯЗАТЕЛЬСТВА</p><button className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></div><h2>{title}</h2>{children}</dialog>;
+  function outside(element: HTMLDialogElement, x: number, y: number) {
+    const rect = element.getBoundingClientRect();
+    return x < rect.left || x > rect.right || y < rect.top || y > rect.bottom;
+  }
+  return <dialog ref={dialog} className={"nen-dialog "+className} onCancel={event => {
+    event.stopPropagation();
+    // File inputs emit a bubbling cancel when their native picker is dismissed.
+    if (event.target !== event.currentTarget) return;
+    event.preventDefault();onClose();
+  }} onPointerDown={event => {
+    backdropPress.current = event.button === 0 && event.target === event.currentTarget && outside(event.currentTarget,event.clientX,event.clientY) ? {x:event.clientX,y:event.clientY} : null;
+  }} onPointerCancel={() => {backdropPress.current = null;}} onClick={event => {
+    const start = backdropPress.current;backdropPress.current = null;
+    if (start && event.target === event.currentTarget && outside(event.currentTarget,event.clientX,event.clientY) && Math.hypot(event.clientX-start.x,event.clientY-start.y) <= 6) onClose();
+  }} aria-label={title}><div className="dialog-header"><p className="eyebrow">NEN / ОБЯЗАТЕЛЬСТВА</p><button type="button" className="icon-button" onClick={onClose} aria-label="Закрыть"><Icon name="close"/></button></div><h2>{title}</h2>{children}</dialog>;
 }
 
 export function Action({ children, onClick, className = "", disabled = false }: { children: ReactNode; onClick: () => Promise<unknown>; className?: string; disabled?: boolean }) {

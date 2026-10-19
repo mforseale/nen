@@ -1,0 +1,166 @@
+/* Posts keep one calm frame; the images share its space without letterboxing. */
+.uniform-feed-post { height: auto; min-height: 600px; padding: 23px; gap: 15px; border-color: #513e50; background: #151016; }
+.forum-post-stream .uniform-feed-post { height: auto; }
+.feed-posts { align-items: start; }
+.uniform-feed-post > header { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 9px 13px; }
+.uniform-feed-post .feed-post-author { width: auto; grid-column: 1; }
+.uniform-feed-post .feed-post-author > img,.uniform-feed-post .feed-post-author > span { width: 43px; height: 43px; border-radius: 50%; }
+.uniform-feed-post .feed-post-author strong { font-size: 19px; }
+.uniform-feed-post .feed-post-meta { grid-column: 1; justify-content: flex-start; flex-wrap: wrap; font-size: 15px; }
+.uniform-feed-post .feed-owner-controls { grid-column: 2; grid-row: 1 / 3; display: flex; flex-wrap: nowrap; gap: 3px; margin: 0; }
+.uniform-feed-post .feed-owner-controls .icon-button { width: 39px; height: 42px; min-height: 42px; }
+.feed-post-copy { flex: 0 0 auto; max-height: none; overflow: visible; }
+.feed-post-copy:empty { display: none; }
+.feed-post-copy h3 { font-size: 25px; overflow: visible; white-space: normal; overflow-wrap: anywhere; }
+.feed-post-copy .post-rich-text { font-size: 18px; line-height: 1.65; white-space: normal; }
+.feed-post-copy h3 button { text-align: left; font: inherit; width: 100%; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+.feed-post-copy .post-rich-text.clamped { max-height: 88px; line-height: 1.65; font-size: 18px; display: block; }
+.text-only-post .feed-post-copy { flex: 0 0 auto; max-height: none; }
+.text-only-post .feed-post-copy .post-rich-text.clamped { max-height: 340px; }
+.feed-post-preview { flex: 0 0 auto; gap: 0; overflow: visible; }
+.post-attachments .post-mosaic { --gallery-max-height: 320px; display: flex; flex-direction: column; flex: none; width: min(100%,calc((var(--gallery-max-height) + var(--gallery-gap-adjustment)) * var(--gallery-aspect))); max-width: 100%; height: auto; gap: 2px; padding: 0; overflow: hidden; border-radius: 6px; background: transparent; margin: 0 auto; align-self: center; }
+.post-gallery-row { display: flex; align-items: flex-start; gap: 2px; min-width: 0; }
+.post-mosaic .post-gallery-item { position: relative; flex-basis: 0; min-width: 0; min-height: 0; border: 0; background: transparent; overflow: hidden; }
+.post-mosaic .post-gallery-item > button:first-child { position: relative; width: 100%; height: auto; display: block; min-height: 0; }
+.post-attachments .post-mosaic .post-gallery-item img { display: block; width: 100%; height: auto; object-fit: contain; max-height: none; }
+.post-image-hover { position: absolute; inset: 0; display: flex; justify-content: center; align-items: center; flex-direction: column; gap: 7px; font-size: 16px; font-weight: 700; background: #130e1685; color: #fff5fc; opacity: 0; transition: opacity 180ms ease; }
+.post-mosaic button:hover .post-image-hover,.post-mosaic button:focus-visible .post-image-hover { opacity: 1; }
+.compact-attachments { flex: none; overflow: visible; }
+.compact-attachments:has(.post-media-list) .post-mosaic,.compact-attachments:has(.post-other-files) .post-mosaic { --gallery-max-height: 220px; }
+.compact-attachments:has(.post-media-list):has(.post-other-files) .post-mosaic { --gallery-max-height: 170px; }
+.post-file-emblem { display: inline-flex; flex-direction: column; flex-shrink: 0; align-items: center; justify-content: center; gap: 3px; width: 48px; min-height: 48px; background: #37273c; border: 1px solid #6b4e6b; border-radius: 8px; color: #e2cbe2; }
+.post-file-emblem b { font-size: 10px; line-height: 1; font-weight: 800; max-width: 40px; overflow: hidden; }
+.compact-attachments .post-media { border-radius: 6px; background: #241b2c; padding: 8px 11px; }
+.compact-attachments .post-media-heading { gap: 10px; margin-bottom: 6px; }
+.compact-attachments .post-file-emblem { width: 31px; min-height: 31px; border-radius: 6px; }
+.compact-attachments .post-file-emblem > svg { width: 21px; height: 21px; }
+.compact-attachments .post-media-heading > strong { font-size: 16px; }
+.compact-attachments .post-media-footer { font-size: 13px; }
+.post-media-audio .post-file-emblem { color: #e5d1f9; background: #3c2c50; }
+.post-media-video .post-file-emblem { color: #c4dcf1; background: #263c50; }
+.post-other-files > div { border-radius: 6px; background: #201923; }
+.compact-attachments .post-other-files > div { padding: 7px 9px; }
+.compact-attachments .post-file-open strong { font-size: 15px; }
+.post-file-open .post-file-emblem { min-width: 40px; width: 40px; min-height: 43px; }
+.post-file-open .post-file-emblem > svg { width: 23px; height: 23px; }
+.post-other-files .icon-button { flex-shrink: 0; }
+.feed-post-footer { gap: 9px; margin-top: auto; padding-top: 12px; border-color: #503d4c; }
+.feed-post-footer > .text-link { margin-left: auto; font-size: 16px; white-space: nowrap; }
+.feed-post-footer > .text-link svg { width: 21px; }
+.feed-post-footer .feed-post-link { margin: 0; padding: 0; border: 0; flex-shrink: 0; }
+.feed-comment-preview { border-top: 1px solid #493646; padding-top: 15px; display: grid; gap: 14px; }
+.feed-comment-excerpt { min-width: 0; border-left: 2px solid #75566c; padding-left: 12px; }
+.feed-comment-excerpt > a { color: #ddbdd5; font-size: 16px; font-weight: 750; }
+.feed-comment-excerpt .post-rich-text { font-size: 16px; line-height: 1.6; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.feed-comment-preview .feed-comments-open { min-height: 44px; gap: 10px; font-size: 16px; color: #dfc5d8; justify-self: start; text-align: left; }
+.feed-comment-preview > .muted { font-size: 15px; }
+.nen-dialog.post-image-dialog { width: min(1040px,calc(100vw - 32px)); max-height: 90svh; padding: 18px; background: #100d11; border: 1px solid #806675; border-radius: 10px; }
+.post-image-dialog > h2,.post-image-dialog .dialog-header > .eyebrow { display: none; }
+.post-image-dialog > .dialog-header { justify-content: flex-end; margin-bottom: 12px; }
+.post-image-frame { display: flex; justify-content: center; }
+.post-image-frame > img { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(90svh - 140px); object-fit: contain; }
+.post-image-controls { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 14px; min-height: 44px; }
+.post-image-controls .icon-button { width: 44px; height: 44px; border: 1px solid #674d60; border-radius: 50%; }
+.post-image-controls > span { font-size: 16px; color: #d6c0cf; }
+.post-image-controls .image-previous > svg { transform: rotate(180deg); }
+.post-image-controls > a { margin-left: auto; font-size: 16px; gap: 8px; }
+.post-reaction-area { min-width: 0; }
+.post-reactions { display: flex; align-items: center; gap: 5px; }
+.post-reaction { display: inline-flex; gap: 7px; align-items: center; justify-content: center; min-width: 58px; min-height: 44px; padding: 5px 9px; color: #d7c1d3; border: 1px solid transparent; border-radius: 7px; font-size: 17px; font-weight: 750; }
+button.post-reaction:hover { border-color: #75556d; background: #2c1f2a; }
+.post-reaction.is-liked { color: #f3a9bb; background: #42212d; }
+.post-reaction.is-liked svg { fill: #b8577166; }
+.post-reaction-area > .error-message { margin: 5px 0 0; font-size: 13px; max-width: 250px; }
+.nen-dialog.post-detail-dialog { width: min(760px,calc(100vw - 48px)); max-height: min(760px,76svh); padding: 28px; background: #100d11; border: 1px solid #806675; border-radius: 12px; box-shadow: 0 28px 100px #000a; scrollbar-gutter: stable; }
+.post-detail-dialog > .dialog-header { margin-bottom: 12px; }
+.post-detail-dialog > h2 { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: 32px; line-height: 1.25; margin-bottom: 16px; }
+.post-detail-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px; margin-bottom: 16px; color: #cdb6c8; }
+.post-detail-content > .post-rich-text { margin-bottom: 25px; }
+.post-detail-content > .post-attachments { margin: 0 10px 28px; padding: 12px; border: 1px solid #685061; border-radius: 9px; background: #211922; }
+.post-detail-content > .post-attachments:empty { display: none; }
+.post-detail-content .post-mosaic { --gallery-max-height: clamp(120px,calc(76svh - 280px),300px); }
+.post-link-card { display: flex; gap: 15px; align-items: center; border: 1px solid #66506b; padding: 16px; border-radius: 7px; background: #261b2a; margin-block: 20px; }
+.post-link-card > span:nth-child(2) { flex: 1; min-width: 0; }
+.post-link-card strong { display: block; font-size: 18px; color: #f0ddeb; }
+.post-link-card small { display: block; font-size: 15px; color: #c7aac1; overflow-wrap: anywhere; }
+.post-rich-text { font-size: 19px; line-height: 1.75; color: #e4d4e0; overflow-wrap: anywhere; }
+.post-rich-text a { color: #e3b6d2; text-decoration: underline; text-underline-offset: 4px; }
+.post-rich-text code { font: .88em ui-monospace,SFMono-Regular,Consolas,monospace; padding: 2px 6px; background: #362b39; border-radius: 3px; color: #f7d5e8; }
+.post-rich-text blockquote { border-left: 3px solid #c79ab9; margin: 8px 0; padding: 6px 16px; background: #30222d; color: #e0cad9; }
+.rich-list-line { display: flex; gap: 11px; padding-left: 7px; }
+.post-comments { margin: 28px 10px 10px; padding: 22px; border: 1px solid #685061; border-radius: 9px; background: #1b151e; scroll-margin-top: 25px; }
+.post-comments > h3 { display: flex; align-items: center; gap: 12px; font-size: 24px; font-weight: 750; color: #ecdce8; margin-bottom: 20px; }
+.post-comment-list { display: grid; gap: 17px; }
+.post-comment { background: #201923; border: 1px solid #4e3b4b; border-radius: 5px; padding: 18px; }
+.post-comment > header { display: flex; align-items: center; flex-wrap: wrap; gap: 9px 17px; margin-bottom: 11px; }
+.post-comment > header > a { color: #e3c6da; font-size: 18px; font-weight: 750; }
+.post-comment time { color: #bca6b5; font-size: 14px; }
+.post-comment .post-rich-text { font-size: 18px; }
+.post-comment .comment-remove { margin-left: auto; padding: 5px; min-height: 33px; border: 0; font-size: 14px; }
+.post-comment-form { margin-top: 23px; }
+.post-comment-form .post-text-editor textarea { min-height: 135px; }
+.nen-dialog.post-editor-dialog { width: min(800px,calc(100% - 26px)); }
+.post-composer-fields { display: grid; gap: 20px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.post-composer-fields:disabled { opacity: .7; }
+.post-draft-status { display: flex; align-items: flex-start; gap: 9px; font-size: 15px; line-height: 1.5; color: #c9b7cb; padding: 12px 14px; border: 1px solid #59465d; background: #251c29; border-radius: 5px; }
+.post-draft-status > svg { flex-shrink: 0; margin-top: 2px; }
+.post-text-editor { min-width: 0; }
+.post-text-editor > label { display: block; margin-bottom: 9px; font-size: 18px; font-weight: 700; color: #d7c4d2; }
+.post-editor-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 3px; background: #2d2331; border: 1px solid #6a526b; border-bottom: 0; padding: 7px; border-radius: 6px 6px 0 0; }
+.post-editor-toolbar > button { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; min-height: 42px; padding: 5px 9px; font-size: 21px; color: #eddfeb; border-radius: 4px; }
+.post-editor-toolbar > button:hover,.post-editor-toolbar > button[aria-pressed="true"] { background: #5b3f57; }
+.post-editor-toolbar > .editor-preview-toggle { font-size: 14px; gap: 7px; margin-left: auto; }
+.post-editor-toolbar .code-tool { font: 700 16px ui-monospace,monospace; }
+.post-text-editor textarea { display: block; width: 100%; min-height: 210px; max-height: 60vh; border-radius: 0 0 5px 5px; padding: 17px; font-size: 18px; line-height: 1.7; resize: vertical; }
+.editor-rich-preview { border: 1px solid #6a526b; padding: 17px; min-height: 210px; border-radius: 0 0 5px 5px; background: #171119; }
+.editor-character-count { display: block; text-align: right; color: #b49eaf; font-size: 13px; padding-top: 6px; }
+.editor-link-input { display: flex; gap: 8px; padding: 10px; background: #39293b; border-inline: 1px solid #6a526b; }
+.editor-link-input input { min-width: 0; flex: 1; }
+.editor-link-input .button { font-size: 14px; padding: 9px; }
+.post-composer .file-drop-label { border-style: dashed; border-color: #886982; padding: 21px; background: #211824; border-radius: 6px; }
+.post-composer .file-drop-label > svg { width: 30px; height: 30px; color: #e0bfd8; }
+.post-composer .composer-attachments > div { border-radius: 6px; }
+.post-composer .composer-attachments strong { overflow-wrap: anywhere; }
+.draft-close { justify-content: center; font-size: 16px; }
+@media(max-width:600px) {
+  .uniform-feed-post,.forum-post-stream .uniform-feed-post { height: auto; min-height: 560px; padding: 16px; gap: 12px; }
+  .uniform-feed-post .feed-post-author strong { font-size: 17px; }
+  .uniform-feed-post .feed-post-meta { gap: 7px; }
+  .uniform-feed-post .feed-post-meta time,.uniform-feed-post .audience-label { font-size: 13px; }
+  .uniform-feed-post .feed-owner-controls .icon-button { width: 33px; }
+  .feed-post-copy { max-height: none; }
+  .feed-post-copy .post-rich-text { font-size: 17px; }
+  .post-attachments .post-mosaic { --gallery-max-height: 280px; }
+  .compact-attachments:has(.post-media-list) .post-mosaic,.compact-attachments:has(.post-other-files) .post-mosaic { --gallery-max-height: 180px; }
+  .compact-attachments:has(.post-media-list):has(.post-other-files) .post-mosaic { --gallery-max-height: 130px; }
+  .feed-post-copy h3 { font-size: 23px; }
+  .feed-post-copy .post-rich-text.clamped { font-size: 17px; max-height: 79px; }
+  .feed-post-footer { flex-wrap: wrap; }
+  .feed-post-footer > .text-link { font-size: 14px; gap: 5px; }
+  .post-reaction { padding-inline: 6px; min-width: 45px; gap: 5px; font-size: 16px; }
+  .post-reaction > svg { width: 23px; height: 23px; }
+  .post-rich-text { font-size: 18px; }
+  .nen-dialog.post-detail-dialog { width: calc(100vw - 32px); max-height: 82svh; padding: 18px; }
+  .post-detail-content > .post-attachments { margin-inline: 0; padding: 8px; }
+  .post-detail-content .post-mosaic { --gallery-max-height: clamp(120px,calc(82svh - 270px),280px); }
+  .post-comments { margin-inline: 0; padding: 14px; }
+  .post-detail-dialog > h2 { font-size: 27px; }
+  .post-comment { padding: 13px; }
+  .post-comment > header { gap: 5px 12px; }
+  .post-comment .comment-remove span { display: none; }
+  .post-editor-toolbar { padding: 4px; gap: 1px; }
+  .post-editor-toolbar > button { min-width: 35px; padding: 4px 6px; }
+  .post-editor-toolbar > .editor-preview-toggle { font-size: 12px; }
+  .post-text-editor textarea,.editor-rich-preview { padding: 13px; font-size: 17px; }
+  .post-composer .composer-attachments strong { font-size: 14px; }
+  .post-file-emblem { width: 42px; min-height: 42px; }
+}
+@media(max-height:550px) {
+  .nen-dialog.post-detail-dialog { padding: 12px 18px; }
+  .post-detail-dialog > .dialog-header { margin-bottom: 3px; }
+  .post-detail-dialog > h2 { font-size: 24px; -webkit-line-clamp: 1; margin-bottom: 7px; }
+  .post-detail-meta { margin-bottom: 9px; }
+  .post-detail-content .post-mosaic { --gallery-max-height: clamp(64px,calc(76svh - 200px),160px); }
+  .post-detail-content > .post-attachments { padding: 6px; }
+}
+@media(prefers-reduced-motion:reduce) { .post-image-hover { transition: none; } }

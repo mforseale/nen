@@ -18,7 +18,8 @@ export function HomeDirections({pacts, selected, onSelect, loading = false}: {pa
     {directions.map(item => {
       const point = directionPoint(item.angle,205);
       const count = pacts.filter(pact => pact.status === "active" && directionOf(pact) === item.name).length;
-      return <button key={item.id} data-direction={item.id} data-angle={item.angle} className={"home-direction-node " + (selected === item.name ? "active" : "")} aria-pressed={selected === item.name} aria-controls="home-own-pacts" style={{"--direction-color":item.color,left:point.x/6.4+"%",top:point.y/6.4+"%"} as CSSProperties} onClick={() => onSelect(item.name)}><span className="home-direction-glyph" aria-hidden="true">{item.glyph}</span><strong>{item.name}</strong><small>{loading ? "…" : `${count} / 12`}</small></button>;
+      const ending = count % 10 === 1 && count % 100 !== 11 ? "пакт" : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? "пакта" : "пактов";
+      return <button key={item.id} data-direction={item.id} data-angle={item.angle} data-count={count} className={"home-direction-node " + (selected === item.name ? "active" : "")} aria-pressed={selected === item.name} aria-controls="home-own-pacts" style={{"--direction-color":item.color,left:point.x/6.4+"%",top:point.y/6.4+"%"} as CSSProperties} onClick={() => onSelect(item.name)}><span className="home-direction-glyph" aria-hidden="true">{item.glyph}</span><strong>{item.name}</strong><small>{loading ? "…" : `${count} ${ending}`}</small></button>;
     })}
   </div>;
 }

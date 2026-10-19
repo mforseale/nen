@@ -1,4 +1,5 @@
 import { isExpired, localDay, type Pact, type Tier } from "./api";
+import { keptToday, pactDays } from "./pact-progress";
 
 export const directions = [
   { id: "body", name: "Тело", glyph: "身", color: "#86d3a4", angle: -90, description: "Движение, здоровье и восстановление." },
@@ -10,19 +11,18 @@ export const directions = [
 ] as const;
 export type DirectionName = typeof directions[number]["name"];
 export const tierOrder: Tier[] = ["common", "rare", "epic", "legendary"];
-export const SLOT_LIMIT = 3;
-export type Capacity = { limit: number; counts: Record<DirectionName, Record<Tier, number>> };
+export type Capacity = { limit: null; counts: Record<DirectionName, Record<Tier, number>> };
 const aliases: Record<string, DirectionName> = { "Осознанность": "Дисциплина", "Развитие": "Разум", "Движение": "Тело", "Фокус": "Дисциплина", "Здоровье": "Тело", "Творчество": "Созидание", "Принципы": "Социум", "Личное": "Другое" };
 export function directionOf(pact: Pact): DirectionName {
   return directions.find(direction => direction.name === pact.category)?.name ?? aliases[pact.category ?? ""] ?? (pact.is_joint ? "Социум" : "Другое");
 }
 export function dailyEligible(pact: Pact, day = localDay()) {
-  return pact.status === "active" && !isExpired(pact) && (pact.checkins.includes(day) || !pact.duration_days || pact.checkins.length < pact.duration_days);
+  return pact.status === "active" && !isExpired(pact) && (pact.tracking_mode === "automatic" || pact.checkins.includes(day) || !pact.duration_days || pactDays(pact) < pact.duration_days);
 }
 export function directionSummary(pacts: Pact[], category: DirectionName, day = localDay()) {
   const active = pacts.filter(pact => pact.status === "active" && directionOf(pact) === category).sort((a, b) => a.id - b.id);
   const eligible = active.filter(pact => dailyEligible(pact, day));
-  const checked = eligible.filter(pact => pact.checkins.includes(day)).length;
+  const checked = eligible.filter(pact => keptToday(pact, day)).length;
   return { active, eligible: eligible.length, checked, todayProgress: eligible.length ? Math.round(checked / eligible.length * 100) : 0,
     counts: Object.fromEntries(tierOrder.map(tier => [tier, active.filter(pact => pact.rarity === tier).length])) as Record<Tier, number> };
 }

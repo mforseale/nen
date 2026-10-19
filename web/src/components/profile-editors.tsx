@@ -4,10 +4,11 @@
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { api, refreshData, tiers, useApi, type Pact, type Tier } from "@/lib/api";
-import { type Capacity, type DirectionName } from "@/lib/directions";
+import { type DirectionName } from "@/lib/directions";
 import { useAuth } from "@/lib/auth";
 import { profileHref } from "@/lib/profile-navigation";
-import { audiences, pactCategories, prepareImage, type Audience, type ProfileData, type YearGoal } from "@/lib/community";
+import { audiences, pactCategories, prepareImage, type Audience, type ProfileData, type ProfileFile, type YearGoal } from "@/lib/community";
+import { MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
 import { ErrorMessage, Icon, Modal } from "./ui";
 
 export function AudienceSelect({ value = "private" }: { value?: Audience }) {
@@ -19,13 +20,11 @@ export function PersonalPactForm({ onClose, defaultCategory = "Другое", de
   const {user} = useAuth();
   const [rarity, setRarity] = useState<Tier>(defaultRarity);
   const [category, setCategory] = useState<DirectionName>(defaultCategory);
-  const capacity = useApi<Capacity>("/my/pacts/capacity");
-  const occupied = capacity.data?.counts[category]?.[rarity] ?? 0;
   const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setError(null);
     try {
-      const pact = await api<Pact>("/my/pacts", "POST", { title: form.get("title"), description: form.get("description"), rarity, category: form.get("category") });
+      const pact = await api<Pact>("/my/pacts", "POST", { title: form.get("title"), description: form.get("description"), rarity, category: form.get("category"), utc_offset_minutes: -new Date().getTimezoneOffset() });
       refreshData(); onClose(); router.push(profileHref(user?.username,`pact=${pact.id}`,"pacts"));
     } catch (error) { setError((error as Error).message); } finally { setBusy(false); }
   }
@@ -35,20 +34,29 @@ export function PersonalPactForm({ onClose, defaultCategory = "Другое", de
     <label>Условия<textarea name="description" required minLength={10} maxLength={5000} placeholder="Что именно и сколько ты будешь делать каждый день?"/></label>
     <div className="profile-form-grid"><label>Уровень<select value={rarity} onChange={event => setRarity(event.target.value as Tier)}>{(Object.keys(tiers) as Tier[]).map(tier => <option key={tier} value={tier}>{tiers[tier].label} · {tiers[tier].duration}</option>)}</select></label>
     <label>Направление<select name="category" value={category} onChange={event => setCategory(event.target.value as DirectionName)}>{pactCategories.map(category => <option key={category}>{category}</option>)}</select></label></div>
-    <p className={occupied >= 3 ? "error-message" : "capacity-notice"}>{capacity.loading ? "Проверяем свободные места…" : `${category} · ${tiers[rarity].label}: занято ${occupied} из 3 мест.`}{occupied >= 3 && " Заверши, перенеси или отмени один из активных пактов."}</p>
+    <p className="capacity-notice"><Icon name="infinity"/>Количество пактов не ограничено. Серия будет расти автоматически — отмечать нужно только срывы.</p>
     <p className="form-caption">Длительность: {tiers[rarity].duration}. Условия фиксируются при заключении.</p>
-    <ErrorMessage error={error ?? capacity.error}/><button className="button button-red full-width" disabled={busy || capacity.loading || !!capacity.error || occupied >= 3}>{busy ? "Создаём…" : "Заключить свой пакт"}<Icon name="seal" size={18}/></button>
+    <ErrorMessage error={error}/><button className="button button-red full-width" disabled={busy}>{busy ? "Создаём…" : "Заключить свой пакт"}<Icon name="seal" size={24}/></button>
   </form></Modal>;
 }
 
 export function SettingsForm({ profile, onClose }: { profile: ProfileData; onClose: () => void }) {
   const { refreshUser } = useAuth();
   const [image, setImage] = useState<string | null>(null); const [remove, setRemove] = useState(false);
+  const library = useApi<ProfileFile[]>("/my/files");
+  const [audioId, setAudioId] = useState<number | null>(profile.status_audio_id ?? null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [preparing, setPreparing] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState<string | null>(null);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); const form = new FormData(event.currentTarget); setBusy(true); setError(null);
     try {
-      await api("/my/profile", "PUT", { full_name: form.get("full_name"), bio: form.get("bio"), accent: form.get("accent") });
+      let nextAudioId = audioId;
+      if (audioFile) {
+        const body = new FormData();body.set("file",audioFile);body.set("visibility",String(form.get("audio_visibility") ?? "private"));body.set("pinned","false");
+        const uploaded = await multipart<ProfileFile>("/my/files","POST",body);
+        nextAudioId = uploaded.id;setAudioId(nextAudioId);setAudioFile(null);
+      }
+      await api("/my/profile", "PUT", { full_name: form.get("full_name"), bio: form.get("bio"), accent: form.get("accent"), status_text: form.get("status_text"), status_audio_id: nextAudioId, about: form.get("about"), location: form.get("location"), interests: form.get("interests"), website: form.get("website") });
       if (image) await api("/my/profile/avatar", "PUT", { data_url: image });
       else if (remove) await api("/my/profile/avatar", "DELETE");
       await refreshUser(); refreshData(); onClose();
@@ -62,7 +70,16 @@ export function SettingsForm({ profile, onClose }: { profile: ProfileData; onClo
     }}/></label>{preview && <button type="button" className="text-link" onClick={() => {setRemove(true);setImage(null);}}>Убрать аватарку</button>}</div></div>
     <p className="form-caption">PNG, JPEG или WebP до 10 МиБ. Аватарка обрезается по центру. Имя, описание и аватар видны всем.</p>
     <label>Отображаемое имя<input name="full_name" defaultValue={profile.user.full_name} required minLength={2} maxLength={120}/></label>
-    <label>О себе<textarea name="bio" defaultValue={profile.bio} maxLength={2000} placeholder="Несколько слов о себе и своём пути"/></label>
+    <fieldset className="profile-settings-group"><legend><Icon name="message"/>Статус — виден в шапке профиля</legend><label>Текст статуса<textarea name="status_text" defaultValue={profile.status_text ?? ""} maxLength={280} rows={3} placeholder="Чем живёшь сейчас?"/></label>
+      <label>Музыка из твоей библиотеки<select value={audioId ?? ""} disabled={!!audioFile} onChange={event=>setAudioId(event.target.value ? Number(event.target.value) : null)}><option value="">Без музыки</option>{profile.status_audio && !library.data?.some(file=>file.id === profile.status_audio_id) && <option value={profile.status_audio.id}>{profile.status_audio.name}</option>}{(library.data ?? []).filter(file=>file.kind === "audio" && !file.post_id).map(file=><option key={file.id} value={file.id}>{file.name} · {audiences[file.visibility]}</option>)}</select></label>
+      <label className="status-audio-upload"><Icon name="music"/>Или загрузи музыку<input type="file" accept="audio/*" disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(!file)return;if(file.size>MAX_FILE_SIZE){setError("Музыка должна быть не больше 25 МиБ.");event.target.value="";return;}setError(null);setAudioFile(file);}}/></label>
+      {audioFile && <div className="status-audio-pending"><span>{audioFile.name}</span><button type="button" className="text-link" onClick={()=>setAudioFile(null)}>Убрать</button></div>}
+      {audioFile && <label>Кто сможет слушать новый файл<select name="audio_visibility" defaultValue="public">{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
+      <p className="form-caption">Без автовоспроизведения. До 25 МиБ, закреп не расходуется. У файла из библиотеки сохраняется его видимость.</p><ErrorMessage error={library.error}/>
+    </fieldset>
+    <fieldset className="profile-settings-group"><legend><Icon name="user"/>О себе — подробности по нажатию</legend><label>Коротко о себе<textarea name="bio" defaultValue={profile.bio} maxLength={2000} placeholder="Несколько слов о себе и своём пути"/></label><label>Подробности<textarea name="about" defaultValue={profile.about ?? ""} maxLength={5000} placeholder="Твои увлечения, планы, любимые вещи и то, что хочется рассказать"/></label>
+      <div className="profile-form-grid"><label>Город<input name="location" defaultValue={profile.location ?? ""} maxLength={120} placeholder="Где ты живёшь"/></label><label>Твоя ссылка<input name="website" type="url" defaultValue={profile.website ?? ""} maxLength={2000} placeholder="https://…"/></label></div><label>Интересы<input name="interests" defaultValue={profile.interests ?? ""} maxLength={500} placeholder="Музыка, книги, японский — через запятую"/></label><p className="form-caption">Текст статуса и информация о себе видны всем, кто откроет профиль.</p>
+    </fieldset>
     <label>Акцент профиля<select name="accent" defaultValue={profile.accent}><option value="crimson">Гранатовый</option><option value="silver">Серебряный</option><option value="gold">Состаренное золото</option></select></label>
     <ErrorMessage error={error}/><button className="button button-red full-width" disabled={busy || preparing}>{preparing ? "Готовим картинку…" : busy ? "Сохраняем…" : "Сохранить настройки"}<Icon name="check" size={17}/></button>
   </form></Modal>;

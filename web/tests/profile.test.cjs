@@ -16,13 +16,14 @@ function load(relative) {
   const compiledModule = { exports: {} };
   function localRequire(name) {
     if (name === "next/link") return { __esModule: true, default: ({ children, ...props }) => React.createElement("a", props, children) };
-    if (name === "@/lib/api" || name === "./api") return { formatDate: () => "19 октября", localDay:()=>"2026-10-19",isExpired:pact=>pact.deadline === "expired",useApi:(path)=>{apiPaths.push(path);return {data:[],loading:false,error:null};},tiers: Object.fromEntries(["common","rare","epic","legendary"].map(tier=>[tier,{label:tier,duration:"7 дней"}])) };
+    if (name === "@/lib/api" || name === "./api") return { formatDate: () => "19 октября", localDay:()=>"2026-10-19",myPactsPath:()=>"/my/pacts?utc_offset_minutes=0",isExpired:pact=>pact.deadline === "expired",useApi:(path)=>{apiPaths.push(path);return {data:[],loading:false,error:null};},tiers: Object.fromEntries(["common","rare","epic","legendary"].map(tier=>[tier,{label:tier,duration:"7 дней"}])) };
     if (name === "@/lib/auth") return { useAuth: () => ({ user: signedIn ? { id: 1,username:"alice" } : null }) };
     if (name === "next/navigation") return {useRouter:()=>({push:()=>{},replace:()=>{}}),useSearchParams:()=>new URLSearchParams()};
     if (name === "@/lib/profile-navigation") return load("lib/profile-navigation.ts");
     if (name === "@/lib/community") return load("lib/community.ts");
     if (name === "@/lib/directions") return load("lib/directions.ts");
     if (name === "@/lib/profile-files") return load("lib/profile-files.ts");
+    if (name.startsWith("@/lib/")) return load("lib/"+name.slice(6)+".ts");
     if (name === "./profile-editors") return {};
     if (name === "./ui") return { Icon: ({ name }) => React.createElement("svg", { "data-icon": name }), Action: ({ children, className, disabled }) => React.createElement("button", { className, disabled }, children),Modal:({title,children})=>React.createElement("section",{"data-modal":title},children),ErrorMessage:()=>null,Loading:()=>React.createElement("div",null,"Loading") };
     if (name.startsWith("./")) {
@@ -133,13 +134,13 @@ test("the unified profile gives owner management and never loads own pacts for a
   assert.match(own,/Настройки/);
   assert.match(own,/profile-tab-pacts/);
   assert.match(own,/Карта пактов/);
-  assert.ok(apiPaths.includes("/my/pacts"));
+  assert.ok(apiPaths.some(path=>path?.startsWith("/my/pacts?")));
   apiPaths=[];
   const visitor=render(UserProfile,{data:{...data,user:{id:2,username:"boris",full_name:"Boris"},friendship:{status:"none",id:null}}});
   assert.doesNotMatch(visitor,/Настройки|profile-tab-pacts|Отметить все/);
   assert.match(visitor,/Добавить в друзья/);
   assert.match(visitor,/Предложить пакт/);
-  assert.ok(!apiPaths.includes("/my/pacts"));
+  assert.ok(!apiPaths.some(path=>path?.startsWith("/my/pacts")));
 });
 
 test("pacts and history are closed initially with an accessible native disclosure",()=>{
@@ -148,6 +149,17 @@ test("pacts and history are closed initially with an accessible native disclosur
   assert.match(html,/<details class="profile-pact-details"><summary>/);
   assert.doesNotMatch(html,/<details[^>]*\sopen/);
   assert.match(html,/Мои пакты \/ История/);
+});
+
+test("profile status is always in the identity header and music uses manual controls",()=>{
+  const {ProfileAbout}=load("components/profile-about.tsx");
+  const profile={user:{id:1,username:"alice",full_name:"Alice"},created_at:"2026-10-19",status_text:"Учусь быть последовательнее",status_audio:{name:"My track.mp3",url:"/api/v1/profile/files/9/content"},bio:"Biography",about:"Details",interests:"Music, Books",website:"javascript:alert(1)"};
+  const html=render(ProfileAbout,{profile,owner:true,onEdit:()=>{}});
+  assert.match(html,/Учусь быть последовательнее/);
+  assert.match(html,/<audio controls="" preload="none"/);
+  assert.match(html,/My track.mp3/);
+  assert.match(html,/Подробнее/);
+  assert.doesNotMatch(html,/autoplay|javascript:|<details|<dialog/);
 });
 
 const attachment=(id,kind="file")=>({id,post_id:1,name:kind+"-"+id,size:100,kind,media_type:"application/octet-stream",pinned:false,visibility:"private",url:`/api/v1/profile/files/${id}/content`,download_url:`/api/v1/profile/files/${id}/content?download=true`,created_at:"2026-10-19"});
@@ -160,13 +172,13 @@ test("images and audio belong to one post, with manual audio controls below its 
   assert.doesNotMatch(html,/Форматы публикаций|autoplay|iframe|Закрепить/);
 });
 
-test("one and ten images use the same fixed post shell and a bounded thumbnail grid",()=>{
+test("one and ten images share the feed controls and expose every photo in their gallery",()=>{
   const post={id:1,kind:"post",title:"Uniform post",content:"Text",visibility:"public",url:"",image_url:null,created_at:"2026-10-19"};
   for(const count of [0,1,4,10]) {
     const html=render(ProfilePosts,{posts:[{...post,attachments:Array.from({length:count},(_,index)=>attachment(index+1,"image"))}]});
-    assert.match(html,/class="feed-post uniform-feed-post"/);
+    assert.match(html,/class="feed-post uniform-feed-post(?: text-only-post)?"/);
     assert.equal([...html.matchAll(/class="post-gallery-item"/g)].length,count);
-    assert.match(html,/Открыть пост/);
+    assert.match(html,/Написать комментарий/);
     assert.doesNotMatch(html,/Ещё картинки/);
   }
 });

@@ -1,5 +1,7 @@
 # CI: проверки в GitHub Actions
 
+Автоматическая SSH-доставка подготовлена в отдельном `.github/workflows/deploy.yml`: [automatic-deployment.md](automatic-deployment.md). CI теперь включает 17 тестов инструментов деплоя и настоящий SSH/systemd fixture на одноразовом Linux runner с обрывом клиента во время установки. Весь [запуск №39273932076](https://github.com/mforseale/nen/actions/runs/39273932076) для `7cdaa72` успешен. Настройка production SSH/secrets ожидается, автоматическая доставка до неё выключена через repository variable.
+
 Обновление: CI теперь дополнительно проверяет восстановление при ошибках деплоя, собирает standalone + Linux Python wheels и запускает готовый архив с временной БД. Web-job зависит от успешной API-job. Успешный `main` публикует artifact на 7 дней. Детали: [simple-deployment.md](simple-deployment.md). Сведения о первых проверках ниже сохранены как история.
 
 Проверка новой схемы подтверждена успешным [запуском №39264071434](https://github.com/mforseale/nen/actions/runs/39264071434) на commit `865dbd0`; шаг запуска готового архива и публикация artifact успешны. Установщик на рабочей VM пока не выполнялся.

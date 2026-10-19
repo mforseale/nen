@@ -1,0 +1,88 @@
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Check SSH access or install a verified CI package
+        type: choice
+        options: [probe, install]
+        default: probe
+      ci_run_id:
+        description: Numeric successful CI run ID (required for install)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+# Separate from CI: a new push must not cancel an installation on the VM.
+concurrency:
+  group: nen-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && vars.NEN_CD_ENABLED == 'true' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository &&
+       (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch'))
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    environment:
+      name: production
+      url: https://144.31.189.98
+    steps:
+      - name: Check out trusted main deployment tools
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+
+      - name: Select verified runtime from current main
+        id: runtime
+        if: github.event_name == 'workflow_run' || inputs.mode == 'install'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NEN_CI_RUN_ID: ${{ inputs.ci_run_id }}
+        run: python3 scripts/select_runtime.py
+
+      - name: Download verified CI artifact
+        if: steps.runtime.outputs.skip == 'false'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.runtime.outputs.run_id }}
+          name: ${{ steps.runtime.outputs.artifact }}
+          path: .deploy/runtime
+
+      - name: Check restricted SSH access
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'probe'
+        env:
+          NEN_DEPLOY_SSH_KEY: ${{ secrets.NEN_DEPLOY_SSH_KEY }}
+          NEN_DEPLOY_KNOWN_HOSTS: ${{ secrets.NEN_DEPLOY_KNOWN_HOSTS }}
+        run: python3 scripts/deliver_runtime.py probe
+
+      - name: Deliver and install runtime
+        if: steps.runtime.outputs.skip == 'false'
+        env:
+          NEN_DEPLOY_SSH_KEY: ${{ secrets.NEN_DEPLOY_SSH_KEY }}
+          NEN_DEPLOY_KNOWN_HOSTS: ${{ secrets.NEN_DEPLOY_KNOWN_HOSTS }}
+          SOURCE_COMMIT: ${{ steps.runtime.outputs.commit }}
+        run: |
+          runtime_sha="$(cut -d ' ' -f 1 .deploy/runtime/nen-runtime.sha256)"
+          python3 scripts/deliver_runtime.py install --archive .deploy/runtime/nen-runtime.tar.gz --sha256 "$runtime_sha" --commit "$SOURCE_COMMIT"
+
+      - name: Check public HTTPS
+        if: steps.runtime.outputs.skip == 'false'
+        run: |
+          curl --fail --silent --show-error --max-time 15 --retry 3 --retry-delay 2 https://144.31.189.98/api/v1/health
+          curl --fail --silent --show-error --max-time 15 --retry 3 --retry-delay 2 -o /dev/null https://144.31.189.98/

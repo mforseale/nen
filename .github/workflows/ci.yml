@@ -54,7 +54,7 @@ jobs:
         run: python -m unittest discover -s ../scripts/tests -v
 
       - name: Check VM script syntax
-        run: bash -n ../scripts/setup-vm-services.sh ../scripts/setup-vm-caddy.sh ../scripts/setup-vm-backups.sh ../scripts/bootstrap-vm-migrations.sh
+        run: bash -n ../scripts/setup-vm-services.sh ../scripts/setup-vm-caddy.sh ../scripts/setup-vm-backups.sh ../scripts/bootstrap-vm-migrations.sh ../scripts/setup-vm-cd.sh
 
   web:
     name: Web (Node 24)
@@ -113,6 +113,15 @@ jobs:
         run: |
           runtime_sha="$(cut -d ' ' -f 1 ../.deploy/runtime/nen-runtime.sha256)"
           python ../scripts/smoke_runtime.py ../.deploy/runtime/nen-runtime.tar.gz --sha256 "$runtime_sha"
+
+      - name: Exercise VM deployment over restricted SSH
+        run: |
+          if ! test -x /usr/sbin/sshd || ! test -f /usr/lib/python3.10/ensurepip/__init__.py; then
+            sudo apt-get update -qq
+            sudo env DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=l apt-get install -y openssh-server python3-venv
+          fi
+          runtime_sha="$(cut -d ' ' -f 1 ../.deploy/runtime/nen-runtime.sha256)"
+          sudo env GITHUB_ACTIONS=true PATH="$PATH" /usr/bin/python3 ../scripts/ci_ssh_deploy.py ../.deploy/runtime/nen-runtime.tar.gz --sha256 "$runtime_sha"
 
       - name: Upload verified runtime
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'

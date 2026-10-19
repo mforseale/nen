@@ -143,10 +143,31 @@ def app_run(api, *arguments, database="sqlite:////var/lib/nen/pact.db", capture=
 def prepare(api):
     # Validate dependencies before stopping the site. The final venv is recreated
     # at its permanent path: virtualenv launchers must not be relocated.
-    run("runuser", "-u", "nen", "--", "/usr/bin/python3", "-m", "venv", str(api / ".venv"))
+    venv = api / ".venv"
+    venv.mkdir(mode=0o750)
+    shutil.chown(venv, user="nen", group="nen")
+    run("runuser", "-u", "nen", "--", "/usr/bin/python3", "-m", "venv", str(venv))
     app_run(api, "-m", "pip", "install", "--no-index", "--no-cache-dir", "--find-links", str(api / "wheels"),
             "-r", str(api / "requirements.txt"))
     app_run(api, "-m", "pip", "check")
+
+
+def protect_candidate(candidate):
+    # Root later moves these paths and writes metadata. App processes must not
+    # replace them with symlinks while pip or application code runs as nen.
+    run("chown", "-hR", "root:nen", str(candidate))
+    run("chmod", "-R", "u=rwX,g=rX,o=", str(candidate))
+    run("chown", "-hR", "nen:nen", str(candidate / "web/.next"))
+
+
+def already_installed(api, commit):
+    metadata = api / "runtime.json"
+    if metadata.is_symlink() or not metadata.is_file() or metadata.stat().st_size > 4096:
+        return False
+    try:
+        return json.loads(metadata.read_text()).get("commit") == commit
+    except (OSError, ValueError, AttributeError):
+        return False
 
 
 def environment_checks():
@@ -188,7 +209,7 @@ def interruption_guard():
             signal.signal(sig, handler)
 
 
-def deploy(archive=None, sha=None, rollback=False):
+def deploy(archive=None, sha=None, rollback=False, expected_commit=None):
     import fcntl
     installation = Installation()
     installation.validate()
@@ -216,14 +237,20 @@ def deploy(archive=None, sha=None, rollback=False):
                 shutil.copytree(installation.previous, candidate, symlinks=True)
             else:
                 metadata = unpack(archive, candidate, sha)
+                if expected_commit is not None and metadata["commit"] != expected_commit:
+                    raise ValueError("Runtime commit does not match the verified CI commit")
+                if already_installed(installation.root / "api", metadata["commit"]):
+                    print("This commit is already installed; previous rollback copy preserved.", flush=True)
+                    return
                 print(f"Preparing {metadata['commit']}", flush=True)
-                run("chown", "-hR", "nen:nen", str(candidate))
+                protect_candidate(candidate)
                 prepare(candidate / "api")
                 status = json.loads(app_run(candidate / "api", "-m", "app.db_admin", "check", capture=True).stdout)
                 if not status["ready"]:
                     raise ValueError("Schema migration must be reviewed and applied separately first")
                 shutil.rmtree(candidate / "api/.venv")
-            run("chown", "-hR", "nen:nen", str(candidate))
+            if rollback:
+                protect_candidate(candidate)
             stopped = False
             try:
                 stopped = True
@@ -266,6 +293,7 @@ if __name__ == "__main__":
     install = commands.add_parser("install")
     install.add_argument("archive", type=Path)
     install.add_argument("--sha256", required=True)
+    install.add_argument("--expected-commit")
     commands.add_parser("rollback")
     args = parser.parse_args()
-    deploy(rollback=True) if args.command == "rollback" else deploy(args.archive, args.sha256)
+    deploy(rollback=True) if args.command == "rollback" else deploy(args.archive, args.sha256, expected_commit=args.expected_commit)

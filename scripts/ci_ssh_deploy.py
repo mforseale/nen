@@ -66,7 +66,10 @@ def main(archive, sha):
         host = work / "host"
         for path in (key, host):
             run("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", str(path))
+        # Reproduce the parent ownership from the first production installation.
+        shutil.chown(runtime, user="nen", group="nen")
         run("bash", str(ROOT / "scripts/setup-vm-cd.sh"), str(key.with_suffix(".pub")))
+        assert runtime.stat().st_uid == 0 and not runtime.stat().st_mode & 0o022
         Path("/run/sshd").mkdir(exist_ok=True)
         config = work / "sshd.conf"
         config.write_text(f"Port 2222\nListenAddress 127.0.0.1\nHostKey {host}\nPidFile {work / 'sshd.pid'}\n"
@@ -116,6 +119,8 @@ def main(archive, sha):
             assert previous.read_bytes() == before
             assert (runtime / "api").stat().st_uid == 0
             assert not (runtime / "api").stat().st_mode & 0o022
+            parent_write = subprocess.run(["runuser", "-u", "nen", "--", "test", "-w", str(runtime)])
+            assert parent_write.returncode != 0, "App user can replace protected directories through their parent"
             with sqlite3.connect("/var/lib/nen/pact.db") as connection:
                 assert connection.execute("SELECT username FROM users WHERE username='ssh_test'").fetchone() == ("ssh_test",)
             denied = subprocess.run(["runuser", "-u", "nen-deploy", "--", "sudo", "-n", "/usr/bin/id"], capture_output=True)

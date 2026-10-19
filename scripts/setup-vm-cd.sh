@@ -12,6 +12,9 @@ systemctl is-active --quiet nen-web.service
 id nen >/dev/null
 test -r /etc/ssh/ssh_host_ed25519_key.pub
 test ! -e /srv/nen-deploy-state.json
+test -d /srv/nen
+test ! -L /srv/nen
+test "$(readlink -f /srv/nen)" = /srv/nen
 nen_source_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 nen_public_key="$(python3 - "$1" <<'PY'
 import base64
@@ -40,6 +43,10 @@ if id nen-deploy >/dev/null 2>&1; then
 fi
 
 umask 027
+# The application directories are protected only if their parent is protected
+# too. The original installation made /srv/nen owned by the app user.
+chown root:nen /srv/nen
+chmod 0750 /srv/nen
 useradd --system --user-group --home-dir /var/lib/nen-deploy --shell /bin/sh nen-deploy
 install -d -o root -g root -m 0755 /var/lib/nen-deploy
 install -d -o root -g nen-deploy -m 0750 /var/lib/nen-deploy/.ssh

@@ -1,5 +1,7 @@
 # Nen — архитектура развития
 
+Третий этап CI/CD — [миграции и резервные копии](database-migrations-and-backups.md): зафиксированная начальная ревизия Alembic, проверяемое подключение существующей SQLite, снимок перед изменением схемы и восстановление в новый файл. API требует актуальную ревизию вместо `create_all()` при запуске. Подготовлен первый установщик ежедневных копий; на VM он ещё не применялся.
+
 Второй этап CI/CD: проверки GitHub Actions описаны в [continuous-integration.md](continuous-integration.md). Workflow `CI` проверяет API и frontend на Ubuntu 22.04 с Python 3.10 / Node 24 при push и PR в `main`; production-доступ и автоматический deploy на этом этапе не добавляются.
 
 Первый этап CI/CD — общий репозиторий [mforseale/nen](https://github.com/mforseale/nen): [repository.md](repository.md). Выбраны корневой monorepo, ветка `main`, сохранение исходного коммита frontend и исключение локальных данных из Git. Это уточняет прежний план ниже; рабочая VM на этом этапе не меняется.

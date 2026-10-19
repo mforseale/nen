@@ -50,6 +50,9 @@ jobs:
       - name: Run API tests
         run: python -m unittest discover -s tests -v
 
+      - name: Check VM script syntax
+        run: bash -n ../scripts/setup-vm-services.sh ../scripts/setup-vm-caddy.sh ../scripts/setup-vm-backups.sh
+
   web:
     name: Web (Node 24)
     runs-on: ubuntu-22.04

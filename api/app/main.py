@@ -1,13 +1,24 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database import Base, engine
+from app.database import engine
+from app.migrations import require_current_revision
 from app.routers import auth, calendars, community, feed, pacts, users, workspace
+
+@asynccontextmanager
+async def lifespan(application):
+    with engine.connect() as connection:
+        require_current_revision(connection)
+    yield
+
 
 app = FastAPI(
     title="Pact API",
     version="0.1.0",
     description="Backend for pact management and collaboration.",
+    lifespan=lifespan,
 )
 
 app.add_middleware(
@@ -18,8 +29,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-Base.metadata.create_all(bind=engine)
 
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(pacts.router, prefix="/api/v1")

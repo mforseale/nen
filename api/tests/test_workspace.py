@@ -7,14 +7,17 @@ os.environ["DATABASE_URL"] = "sqlite://"
 
 import unittest
 from datetime import date, datetime, timedelta, timezone
+from unittest.mock import patch
 
+from alembic import command
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.database import Base, get_db
+from app.database import get_db
 from app.main import app
+from app.migrations import migration_config
 from app.models import Calendar, CalendarEntry, CalendarEntryDetails, CalendarStyle, Comment, Pact, PactDetails, PactParticipant, PactRarity, PactStatus
 from app.routers.workspace import finish_date
 
@@ -22,7 +25,11 @@ from app.routers.workspace import finish_date
 class WorkspaceTests(unittest.TestCase):
     def setUp(self):
         self.engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
-        Base.metadata.create_all(self.engine)
+        with self.engine.begin() as connection:
+            command.upgrade(migration_config(connection), "head")
+        self.engine_patch = patch("app.main.engine", self.engine)
+        self.engine_patch.start()
+        self.addCleanup(self.engine_patch.stop)
         self.sessions = sessionmaker(bind=self.engine)
         def database():
             with self.sessions() as db:

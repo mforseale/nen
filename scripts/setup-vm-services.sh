@@ -101,10 +101,10 @@ chmod 0644 /etc/systemd/system/nen-api.service /etc/systemd/system/nen-web.servi
 
 systemd-analyze verify /etc/systemd/system/nen-api.service /etc/systemd/system/nen-web.service
 
-# Importing the API creates the schema in the new empty database. No sample data.
+# Initialize the empty schema with versioned migrations. No sample data.
 cd /srv/nen/api
 runuser -u nen -- env DATABASE_URL=sqlite:////var/lib/nen/pact.db PACT_DEBUG=false PACT_COOKIE_SECURE=false PYTHONDONTWRITEBYTECODE=1 \
-  /srv/nen/api/.venv/bin/python -c 'from app.main import app; print("Fresh database initialized.")'
+  /srv/nen/api/.venv/bin/python -m app.db_admin migrate --backup-dir /var/backups/nen
 
 systemctl daemon-reload
 systemctl enable --now nen-api.service nen-web.service

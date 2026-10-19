@@ -23,7 +23,7 @@ Workflow `CI` запускается при push в `main`, при открыт�
 
 Workflow имеет только `contents: read`, не сохраняет Git-credentials в checkout и не использует пользовательские secrets или SSH. Используется событие `pull_request`, без `pull_request_target`.
 
-API получает `DATABASE_URL=sqlite://`, `PACT_DEBUG=false`, `PACT_COOKIE_SECURE=false`; тесты создают изолированные базы в памяти и временные SQLite для проверок сохранности/конкурентности. Рабочие `api/pact.db` и `/var/lib/nen/pact.db` недоступны runner.
+API получает `DATABASE_URL=sqlite://`, `PACT_DEBUG=false`, `PACT_COOKIE_SECURE=false`; тесты создают изолированные базы в памяти и временные SQLite для проверок сохранности/конкурентности. Основной API fixture применяет настоящие миграции. Проверки [миграций и бэкапов](database-migrations-and-backups.md) включены в тот же unittest discovery; отдельный шаг проверяет Bash-синтаксис установщиков. Рабочие `api/pact.db` и `/var/lib/nen/pact.db` недоступны runner.
 
 Frontend собирается с `NEN_API_ORIGIN=http://127.0.0.1:8000` и отключённой телеметрией Next.js. Браузер использует относительный `/api/v1`; `NEXT_PUBLIC_API_URL` не задаётся. Для текущей сборки работающий API не нужен: загрузка пользовательских данных происходит на клиенте.
 

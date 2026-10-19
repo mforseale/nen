@@ -1,6 +1,10 @@
 # CI: проверки в GitHub Actions
 
-Решение от 19 октября 2026 года. Второй этап [плана CI/CD](ci-cd-plan.md) реализуется в `.github/workflows/ci.yml`. Первый этап — [общий репозиторий](repository.md).
+Решение от 19 октября 2026 года. Второй этап [плана CI/CD](ci-cd-plan.md) реализован в `.github/workflows/ci.yml`. Первый этап — [общий репозиторий](repository.md).
+
+## Подтверждённый запуск
+
+Workflow опубликован коммитом `3916776`. Первый автоматический [push-запуск CI №39253746767](https://github.com/mforseale/nen/actions/runs/39253746767) завершился успешно 19 октября 2026 года. Через GitHub REST проверены `conclusion: success` у всего запуска и обеих jobs; установка зависимостей, API-тесты, frontend-тесты, lint и production build имеют статус success. До отправки workflow проверен `actionlint` 1.7.12, загруженным из официального релиза с проверкой SHA-256. Состав тестов на момент настройки — 60 API и 32 frontend; результаты локальной проверки также записаны в [repository.md](repository.md).
 
 ## Когда и что запускается
 

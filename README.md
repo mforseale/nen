@@ -4,6 +4,10 @@
 
 Репозиторий: [mforseale/nen](https://github.com/mforseale/nen). `api/` — FastAPI, `web/` — Next.js, `scripts/` — установочные скрипты, `docs/` — архитектура и инструкции. [Правила репозитория и история переноса](docs/repository.md). План дальнейшей автоматизации — [CI/CD](docs/ci-cd-plan.md).
 
+[![CI](https://github.com/mforseale/nen/actions/workflows/ci.yml/badge.svg)](https://github.com/mforseale/nen/actions/workflows/ci.yml)
+
+[CI в GitHub Actions](docs/continuous-integration.md) проверяет API, frontend и production-сборку при push и pull request в `main`. Автоматический deploy пока не подключён.
+
 ## Что работает
 
 - Только собственные и совместные пакты по шести направлениям: Тело, Социум, Дисциплина, Разум, Созидание, Другое. Готового каталога нет. Common — неделя, rare — календарный месяц, epic — календарный год, legendary — всю жизнь.

@@ -1,5 +1,7 @@
 # Nen — архитектура развития
 
+Второй этап CI/CD: проверки GitHub Actions описаны в [continuous-integration.md](continuous-integration.md). Workflow `CI` проверяет API и frontend на Ubuntu 22.04 с Python 3.10 / Node 24 при push и PR в `main`; production-доступ и автоматический deploy на этом этапе не добавляются.
+
 Первый этап CI/CD — общий репозиторий [mforseale/nen](https://github.com/mforseale/nen): [repository.md](repository.md). Выбраны корневой monorepo, ветка `main`, сохранение исходного коммита frontend и исключение локальных данных из Git. Это уточняет прежний план ниже; рабочая VM на этом этапе не меняется.
 
 Расположение кода, данных и настроек на VM и предложение CI/CD: [ci-cd-plan.md](ci-cd-plan.md). Следующий этап — общий репозиторий, CI на Linux, готовые релизы по commit SHA и переключение через current с сохранением постоянной SQLite. Это пока план: workflow, удалённый репозиторий и deploy-доступ не созданы; текущая установка не менялась.

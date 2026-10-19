@@ -1,5 +1,7 @@
 # Nen: расположение файлов и план CI/CD
 
+По новому логу VM backup service/timer установлены и первый снимок создан. Подготовлен [первый переход рабочей БД на Alembic](vm-baseline-bootstrap.md), с репетицией и ограничением на baseline. Его выполнение ещё не подтверждено; standalone/release и SSH/CD остаются следующими частями плана.
+
 Третий этап, часть базы данных: реализация [миграций и резервных копий](database-migrations-and-backups.md) заменяет описанный ниже статус «Alembic не готов». Есть начальная ревизия, проверка legacy-схемы, backup/restore и установщик ежедневного timer. Применение к VM, standalone-пакет и deploy-доступ ещё не выполнены.
 
 Второй этап — CI: добавлен `.github/workflows/ci.yml` для тестов API, тестов frontend, lint и production build. Подробности: [continuous-integration.md](continuous-integration.md). Доступ к VM, миграции и автоматический deploy остаются следующими этапами. Прежние записи статуса ниже относятся к моменту первоначального планирования.

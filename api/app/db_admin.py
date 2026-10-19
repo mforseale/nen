@@ -2,8 +2,10 @@
 
 import argparse
 from contextlib import closing
+import hashlib
 import json
 from pathlib import Path
+import secrets
 import sqlite3
 
 from alembic import command
@@ -16,7 +18,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.pool import NullPool
 
 from app.migrations import BASELINE, head_revision, migration_config, require_schema_at_revision
-from app.sqlite_backup import backup_database, check_integrity, readonly
+from app.sqlite_backup import backup_database, check_integrity, readonly, restore_backup
 
 
 def database_path(url):
@@ -96,6 +98,49 @@ def database_status(url):
         engine.dispose()
 
 
+def require_baseline_only():
+    if head_revision() != BASELINE:
+        raise ValueError("This one-time operation requires the baseline to be the migration head")
+
+
+def data_fingerprint(path):
+    """Hash the SQLite values, including BLOB bytes, without printing private data."""
+    result = hashlib.sha256()
+    with closing(readonly(path)) as connection:
+        connection.execute("BEGIN")
+        tables = connection.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' "
+            "AND name NOT LIKE 'sqlite_%' AND name != 'alembic_version' ORDER BY name"
+        ).fetchall()
+        for (table,) in tables:
+            encoded = table.encode("utf-8")
+            result.update(len(encoded).to_bytes(8, "big") + encoded)
+            quoted = '"' + table.replace('"', '""') + '"'
+            for row in connection.execute("SELECT * FROM " + quoted + " ORDER BY rowid"):
+                encoded = repr(tuple(row)).encode("utf-8")
+                result.update(len(encoded).to_bytes(8, "big") + encoded)
+    return result.hexdigest()
+
+
+def rehearse_baseline(url, backup_dir, work_dir):
+    require_baseline_only()
+    source = database_path(url)
+    work_dir = Path(work_dir).resolve()
+    work_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    snapshot = backup_database(source, backup_dir, label="baseline-rehearsal")
+    restored = work_dir / ("baseline-check-" + secrets.token_hex(8) + ".sqlite3")
+    restore_backup(snapshot, restored)
+    before = data_fingerprint(restored)
+    restored_url = "sqlite:///" + restored.as_posix()
+    result = migrate_database(restored_url, backup_dir, adopt_existing=True)
+    if data_fingerprint(restored) != before:
+        raise ValueError("Rehearsal changed original data; do not migrate the live database")
+    if not database_status(restored_url)["ready"]:
+        raise ValueError("Rehearsal database did not reach the current revision")
+    return {"revision": result["revision"], "snapshot": str(snapshot), "rehearsal_database": str(restored),
+            "original_rows_and_blobs_preserved": True, "source_opened_readonly": True}
+
+
 def main():
     from app.config import settings
 
@@ -104,12 +149,20 @@ def main():
     migrate = commands.add_parser("migrate")
     migrate.add_argument("--backup-dir", type=Path, required=True)
     migrate.add_argument("--adopt-existing", action="store_true")
+    migrate.add_argument("--baseline-only", action="store_true")
+    rehearse = commands.add_parser("rehearse-baseline")
+    rehearse.add_argument("--backup-dir", type=Path, required=True)
+    rehearse.add_argument("--work-dir", type=Path, required=True)
     commands.add_parser("status")
     commands.add_parser("check")
     args = parser.parse_args()
     try:
         if args.command == "migrate":
+            if args.baseline_only:
+                require_baseline_only()
             result = migrate_database(settings.database_url, args.backup_dir, args.adopt_existing)
+        elif args.command == "rehearse-baseline":
+            result = rehearse_baseline(settings.database_url, args.backup_dir, args.work_dir)
         else:
             result = database_status(settings.database_url)
             if args.command == "check" and not result["ready"]:

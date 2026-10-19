@@ -1,5 +1,6 @@
 import json
-from contextlib import closing
+import io
+from contextlib import closing, redirect_stderr
 from datetime import datetime, timezone
 import os
 import re
@@ -21,7 +22,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import CheckConstraint, MetaData, create_engine, inspect
 
 from app.database import Base
-from app.db_admin import database_path, database_status, migrate_database
+from app.db_admin import database_path, database_status, migrate_database, rehearse_baseline
 from app.migrations import API_ROOT, BASELINE, migration_config, require_schema_at_revision
 from app.sqlite_backup import backup_database, digest, restore_backup, verify_backup
 from test_persistence import isolated_app
@@ -224,6 +225,48 @@ class MigrationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             database_status(self.url)
         self.assertFalse(self.path.exists())
+
+    def test_baseline_rehearsal_preserves_private_blob_and_never_changes_the_live_source(self):
+        self.legacy()
+        with closing(sqlite3.connect(self.path)) as connection, connection:
+            connection.execute("INSERT INTO users VALUES (1, 'owner', 'owner@example.test', 'Original', CURRENT_TIMESTAMP)")
+            connection.execute("INSERT INTO profile_avatars VALUES (1, ?, 'image/png', 'version1')", (b"\x00private-blob\xff",))
+        original_hash = digest(self.path)
+        result = rehearse_baseline(self.url, self.backups, self.root / "rehearsal")
+        self.assertTrue(result["source_opened_readonly"])
+        self.assertTrue(result["original_rows_and_blobs_preserved"])
+        self.assertEqual(result["revision"], BASELINE)
+        self.assertEqual(digest(self.path), original_hash)
+        self.assertFalse(database_status(self.url)["ready"])
+        restored_url = "sqlite:///" + Path(result["rehearsal_database"]).as_posix()
+        self.assertTrue(database_status(restored_url)["ready"])
+        with closing(sqlite3.connect(result["rehearsal_database"])) as connection:
+            self.assertEqual(connection.execute("SELECT content FROM profile_avatars").fetchone(), (b"\x00private-blob\xff",))
+
+    def test_failed_rehearsal_keeps_the_live_schema_and_values_untouched(self):
+        self.legacy()
+        with closing(sqlite3.connect(self.path)) as connection, connection:
+            connection.execute("ALTER TABLE users ADD COLUMN unexpected TEXT")
+        original_hash = digest(self.path)
+        with self.assertRaisesRegex(ValueError, "Schema does not match"):
+            rehearse_baseline(self.url, self.backups, self.root / "rehearsal")
+        self.assertEqual(digest(self.path), original_hash)
+        self.assertEqual(len(list(self.backups.glob("nen-baseline-rehearsal-*.sqlite3"))), 1)
+
+    def test_one_time_baseline_mode_refuses_future_migrations_before_touching_database(self):
+        from app.db_admin import main
+
+        with patch("app.db_admin.head_revision", return_value="future_revision"):
+            with self.assertRaisesRegex(ValueError, "baseline"):
+                rehearse_baseline(self.url, self.backups, self.root / "rehearsal")
+            with patch("sys.argv", ["db_admin", "migrate", "--backup-dir", str(self.backups), "--baseline-only"]):
+                with patch("app.db_admin.migrate_database") as migrate, redirect_stderr(io.StringIO()):
+                    with self.assertRaises(SystemExit) as failure:
+                        main()
+                    self.assertEqual(failure.exception.code, 1)
+                    migrate.assert_not_called()
+        self.assertFalse(self.path.exists())
+        self.assertFalse(self.backups.exists())
 
 
 class BackupTests(unittest.TestCase):

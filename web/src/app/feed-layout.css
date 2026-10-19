@@ -1,0 +1,52 @@
+.uniform-feed-post { box-sizing: border-box; height: 640px; display: flex; flex-direction: column; gap: 16px; overflow: hidden; }
+.uniform-feed-post > header { flex: 0 0 auto; min-height: 44px; margin: 0; gap: 10px; }
+.uniform-feed-post > header > div { gap: 10px; }
+.uniform-feed-post .feed-owner-controls { margin-left: auto; }
+.feed-post-author { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; color: #ead9e6; }
+.feed-post-author > img,.feed-post-author > span { flex-shrink: 0; width: 38px; height: 38px; object-fit: cover; display: grid; place-items: center; background: #372536; color: #edd4e4; border: 1px solid #67465c; font-size: 22px; }
+.feed-post-author strong { font-size: 19px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-post-copy { flex: 0 0 124px; min-height: 0; overflow: hidden; }
+.feed-post-copy h3 { font-size: 26px; line-height: 1.35; font-weight: 750; color: #eddae8; margin: 0 0 9px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feed-post-copy .feed-post-text.clamped { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; line-height: 1.6; overflow: hidden; margin: 0; }
+.feed-post-preview { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; overflow: hidden; }
+.feed-post-preview > .legacy-post-image { flex: 1; min-height: 0; height: 100%; margin: 0; overflow: hidden; }
+.feed-post-preview > .legacy-post-image img { height: 100%; max-height: 100%; object-fit: contain; }
+.compact-attachments { display: flex; flex-direction: column; flex: 1; gap: 10px; min-height: 0; overflow: hidden; }
+.compact-attachments:empty { display: none; }
+.compact-attachments .post-gallery { grid-template-columns: repeat(var(--gallery-columns),minmax(0,1fr)); grid-template-rows: repeat(var(--gallery-rows),minmax(0,1fr)); flex: 1; min-height: 0; margin: 0; gap: 6px; }
+.compact-attachments .post-gallery-item { min-height: 0; overflow: hidden; }
+.compact-attachments .post-gallery-item > button { height: 100%; }
+.compact-attachments .post-gallery-item img { width: 100%; height: 100%; max-height: 100%; aspect-ratio: auto; object-fit: contain; }
+.compact-attachments .post-media-list { flex: 0 0 auto; margin: 0; gap: 0; min-height: 0; }
+.compact-attachments .post-media { padding: 8px 10px; }
+.compact-attachments .post-media-heading { flex-wrap: nowrap; gap: 8px; margin-bottom: 5px; }
+.compact-attachments .post-media-heading > strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 15px; }
+.compact-attachments .post-media-heading > svg { width: 19px; height: 19px; }
+.compact-attachments audio { height: 38px; display: block; }
+.compact-attachments video { height: 85px; display: block; object-fit: contain; }
+.compact-attachments .post-media-footer { margin-top: 4px; font-size: 14px; }
+.compact-attachments .post-other-files { flex: 0 0 auto; margin: 0; }
+.compact-attachments .post-other-files > div { padding: 5px 9px; flex-wrap: nowrap; }
+.compact-attachments .post-file-open strong { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.compact-attachments .post-other-files .icon-button { width: 36px; height: 36px; min-height: 36px; }
+.feed-post-footer { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 47px; border-top: 1px solid #513747; padding-top: 12px; }
+.feed-post-footer .text-link { font-size: 17px; }
+.feed-post-footer .feed-post-link { margin: 0; padding: 0; border: 0; font-size: 16px; }
+.post-detail-content .feed-post-text { margin-bottom: 20px; }
+.post-detail-content { min-width: 0; }
+.forum-main-tabs { display: flex; gap: 10px; margin: 8px 0 32px; border-bottom: 1px solid #583c50; }
+.forum-activity-navigation { margin: 28px 0 22px; }
+.activity-scope-filters { display: flex; flex-wrap: wrap; gap: 12px; }
+.activity-scope-filters button { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 14px 23px; border: 1px solid #65495e; border-radius: 3px; font-size: 21px; font-weight: 750; color: #d8c3d2; background: #140e15; }
+.activity-scope-filters button[aria-pressed="true"] { background: #392337; color: #fff0fa; border-color: #c69dbb; }
+.activity-scope-filters button:not(:disabled):hover { border-color: #d0adc6; }
+.activity-scope-filters svg { width: 26px; height: 26px; }
+.activity-sign-in { margin-top: 12px; font-size: 16px; color: #bea9b7; }
+.activity-sign-in a { color: #ecd0e3; text-decoration: underline; }
+.forum-main-tabs button { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 700; padding: 17px 20px; border-bottom: 3px solid transparent; color: #bea6b7; }
+.forum-main-tabs button[aria-pressed="true"] { color: #f3e5ee; background: #241724; border-color: #c492b2; }
+.forum-post-stream .feed-posts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.forum-post-stream .uniform-feed-post { height: 640px; }
+@media(max-width:600px) { .uniform-feed-post,.forum-post-stream .uniform-feed-post { height: 620px; padding: 18px; gap: 12px; } .feed-post-copy { flex-basis: 120px; } .feed-post-copy h3 { font-size: 23px; } .feed-post-footer { flex-wrap: wrap; } .feed-post-footer .text-link { font-size: 16px; } .feed-post-footer .feed-post-link { font-size: 15px; } .forum-main-tabs { gap: 0; } .forum-main-tabs button { font-size: 17px; padding: 15px 12px; gap: 9px; } .compact-attachments .post-file-open small { font-size: 13px; } }
+@media(max-width:850px) { .forum-post-stream .feed-posts { grid-template-columns: minmax(0,1fr); } }
+@media(max-width:600px) { .activity-scope-filters { gap: 8px; } .activity-scope-filters button { padding: 12px 14px; font-size: 17px; gap: 8px; min-height: 52px; } .activity-scope-filters svg { width: 23px; height: 23px; } }

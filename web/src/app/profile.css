@@ -1,0 +1,207 @@
+.profile-page { --profile-accent: #c47780; --profile-line: #694047; --profile-fill: #25161b; }
+.profile-page[data-accent="silver"] { --profile-accent: #cbc9d0; --profile-line: #53535e; --profile-fill: #1c1c23; }
+.profile-page[data-accent="gold"] { --profile-accent: #d0b07a; --profile-line: #685335; --profile-fill: #262015; }
+.person-avatar { width: 52px; height: 52px; border-radius: 50%; border: 1px solid var(--profile-line, #695151); background: #191315; color: #e4caca; display: inline-grid; place-items: center; flex-shrink: 0; overflow: hidden; font-family: Georgia, serif; font-size: 25px; }
+.person-avatar.large { width: 94px; height: 94px; font-size: 42px; box-shadow: 0 0 0 7px #111011; }
+.person-avatar img, .profile-button img { width: 100%; height: 100%; object-fit: cover; }
+.profile-button { overflow: hidden; }
+.profile-identity-expanded { align-items: flex-start; gap: 27px; padding-bottom: 32px; border-bottom-color: var(--profile-line); }
+.profile-identity-copy { min-width: 0; flex: 1; }
+.profile-identity-copy h1 { overflow-wrap: anywhere; font-weight: 750; }
+.profile-bio { max-width: 650px; margin-top: 15px; color: #c9bcbc; font-size: 15px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
+.profile-header-controls { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 15px; flex-shrink: 0; }
+.profile-header-controls .button { font-size: 13px; }
+.profile-header-controls .button-quiet { padding: 5px 0; border: 0; color: #b2a4a5; }
+.profile-header-controls .text-link { font-size: 12px; }
+.profile-section-nav { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 28px; padding: 22px 0; border-bottom: 1px solid #302729; }
+.profile-section-nav a { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 650; color: #bfb0b2; padding: 4px 0; }
+.profile-section-nav a:hover { color: var(--profile-accent); }
+.profile-section-nav a:last-child { margin-left: auto; }
+.profile-section-nav a > span { color: var(--profile-accent); }
+.profile-anchor { scroll-margin-top: 30px; }
+.pacts-checkin-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 24px; margin: 32px 0 0; }
+.pacts-checkin-toolbar > div:first-child { max-width: 450px; }
+.pacts-checkin-toolbar strong { color: #e9dfe0; font-size: 17px; font-weight: 750; }
+.pacts-checkin-toolbar p { color: #b8a4a7; font-size: 13px; line-height: 1.7; margin-top: 6px; }
+.module-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; }
+.module-actions .button { font-size: 12px; white-space: nowrap; padding: 12px 17px; }
+.module-actions > .error-message { flex-basis: 100%; text-align: right; }
+.batch-result { background: #201518; color: #e2bbc2; border-left: 2px solid #aa5a67; padding: 13px 17px; margin-top: 18px; font-size: 14px; }
+.custom-pact-label { display: inline-block; margin-left: 11px; color: #d4b4bc; font-size: 10px; font-weight: 650; }
+.seal-custom-kind { display: flex; align-items: center; gap: 7px; color: #c9a9ad; font-size: 12px; margin-bottom: 12px; }
+.catalog-personal-action { display: flex; justify-content: flex-end; padding-top: 22px; margin-bottom: -7px; position: relative; z-index: 1; }
+.catalog-personal-action .button { background: #171114d9; font-size: 13px; }
+.profile-module { margin-top: 58px; padding-top: 29px; border-top: 1px solid var(--profile-line, #57383d); }
+.module-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 20px; margin-bottom: 25px; }
+.module-heading h2 { display: flex; align-items: center; gap: 12px; font-family: Georgia, "Times New Roman", serif; font-size: 29px; line-height: 1.3; font-weight: 700; color: #eee3df; }
+.module-heading h2 > svg { color: var(--profile-accent, #c47780); flex-shrink: 0; }
+.module-heading p { color: #ad9d9e; font-size: 13px; line-height: 1.8; margin-top: 7px; }
+.module-heading > .button { font-size: 13px; }
+.module-count { color: var(--profile-accent, #c47780); font-family: Georgia, serif; font-size: 24px; }
+.profile-filters { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 23px; }
+.profile-filters button { display: inline-flex; align-items: center; gap: 7px; padding: 9px 15px; border: 1px solid #3e3236; border-radius: 2px; color: #b9a8ad; font-size: 12px; font-weight: 650; transition: color .2s, border-color .2s, background .2s; }
+.profile-filters button:hover { color: #f4e8eb; border-color: #89636c; }
+.profile-filters button.active { background: var(--profile-fill, #25161b); border-color: var(--profile-line, #694047); color: #f0dfe3; }
+.achievement-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 15px; }
+.achievement { --award-color: #b09ca3; display: flex; align-items: flex-start; gap: 18px; padding: 23px 20px; border: 1px solid #362c31; background: #100d10; min-width: 0; }
+.achievement[data-tier="common"] { --award-color: #dbdce4; }
+.achievement[data-tier="rare"] { --award-color: #88b2ef; }
+.achievement[data-tier="epic"] { --award-color: #c3a3ed; }
+.achievement[data-tier="legendary"] { --award-color: #e7c079; }
+.achievement.earned { background: #191216; border-color: #73525d; }
+.achievement-medal { width: 46px; height: 56px; flex-shrink: 0; display: grid; place-items: center; color: var(--award-color); border: 1px solid #65555c; border-radius: 24px 24px 4px 4px; position: relative; }
+.achievement.locked .achievement-medal { color: #8b7c83; border-color: #43383e; }
+.achievement-medal > span { position: absolute; bottom: -5px; right: -5px; background: #34252d; color: #f6d8e2; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; border: 1px solid #8d6574; }
+.achievement > div:last-child { flex: 1; min-width: 0; }
+.achievement h3 { color: #e3d6dc; font-size: 14px; line-height: 1.6; font-weight: 750; overflow-wrap: anywhere; }
+.achievement.earned h3 { color: var(--award-color); }
+.achievement p { color: #b09fa8; font-size: 12px; line-height: 1.7; margin-top: 6px; }
+.achievement-progress { height: 2px; background: #362b32; margin: 14px 0 7px; }
+.achievement-progress > span { display: block; height: 100%; background: var(--award-color); }
+.achievement small { color: #a995a2; font-size: 10px; }
+.achievement.earned small { color: #d3b7c6; }
+.profile-expand { margin: 22px auto 0; display: flex; font-size: 12px; }
+.profile-empty-line { display: flex; gap: 15px; align-items: center; color: #b5a3aa; font-size: 14px; line-height: 1.8; padding: 25px 0; }
+.profile-empty-line > svg { flex-shrink: 0; color: #a17988; }
+.year-select select { min-height: 40px; padding: 8px 12px; font-size: 14px; font-weight: 700; background: #191417; color: #e7d3dc; border: 1px solid #5e4752; border-radius: 2px; }
+.year-goals-list { display: grid; gap: 14px; }
+.year-goal { display: flex; gap: 20px; align-items: flex-start; border: 1px solid #49333e; border-left: 2px solid var(--profile-line, #694047); background: #130e12; padding: 22px; }
+.year-goal.complete { border-left-color: var(--profile-accent); }
+.goal-status { color: var(--profile-accent); padding-top: 3px; }
+.goal-content { flex: 1; min-width: 0; }
+.goal-topline { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 20px; align-items: baseline; }
+.goal-topline h3 { color: #eadfe5; font-size: 17px; font-weight: 750; overflow-wrap: anywhere; }
+.audience-label { display: inline-flex; align-items: center; gap: 6px; color: #ad97a4; font-size: 11px; white-space: nowrap; }
+.goal-content > p { color: #b9a7b1; font-size: 13px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 9px; }
+.goal-progress-caption { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; font-size: 12px; color: #bd9cad; margin: 18px 0 9px; }
+.goal-progress-caption strong { color: #d7bfcc; font-weight: 600; }
+.goal-progress-track { height: 3px; background: #3c2934; }
+.goal-progress-track > span { display: block; height: 100%; background: var(--profile-accent); transition: width .25s ease; }
+.goal-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; flex-shrink: 0; }
+.goal-actions > .button { font-size: 12px; padding: 6px 11px; min-height: 32px; margin-right: 5px; }
+.goal-actions > .error-message { flex-basis: 100%; }
+.profile-post-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 22px; }
+.profile-post { border: 1px solid #44313b; background: #120d11; min-width: 0; overflow: hidden; }
+.profile-post-image { display: block; background: #080608; }
+.profile-post-image img { width: 100%; max-height: 340px; display: block; object-fit: contain; }
+.profile-post-body { padding: 23px; }
+.profile-post-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; color: #b796a7; font-size: 11px; margin-bottom: 17px; }
+.profile-post-meta > span { display: inline-flex; gap: 7px; align-items: center; color: var(--profile-accent); }
+.profile-post h3 { font-family: Georgia, serif; font-size: 24px; line-height: 1.4; color: #e9dce5; font-weight: 700; overflow-wrap: anywhere; }
+.profile-post-body > p { color: #c3afb9; font-size: 14px; line-height: 1.9; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 15px; }
+.profile-post-link { display: flex; align-items: center; justify-content: space-between; color: #d8acbe; gap: 12px; font-size: 13px; font-weight: 650; padding: 18px 0 0; }
+.profile-post-link:hover { color: #ffe0ed; }
+.profile-post-footer { display: flex; justify-content: space-between; align-items: center; gap: 15px; border-top: 1px solid #3c2c35; padding-top: 14px; margin-top: 22px; }
+.profile-post-footer > div { display: flex; gap: 6px; }
+.profile-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 19px; }
+.profile-form-grid > label { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 13px; font-weight: 650; color: #cfc0b2; }
+.profile-form-grid input, .profile-form-grid select { width: 100%; min-width: 0; font-size: 14px; font-weight: 500; }
+.avatar-editor { display: flex; gap: 25px; align-items: center; padding: 12px 0; }
+.avatar-editor > div:last-child { flex: 1; min-width: 0; display: grid; gap: 12px; }
+.avatar-editor label { display: grid; gap: 12px; }
+.avatar-editor .text-link { justify-self: start; font-size: 12px; }
+.form-stack input[type="file"] { font-size: 12px; max-width: 100%; padding: 10px; min-width: 0; }
+.form-stack input[type="file"]::file-selector-button { background: #39252e; color: #ead4de; border: 1px solid #7c5365; padding: 8px 12px; margin-right: 12px; cursor: pointer; border-radius: 2px; }
+.post-image-preview img { display: block; max-height: 230px; width: 100%; object-fit: contain; background: #090709; margin-bottom: 12px; }
+.post-image-preview .text-link { font-size: 12px; }
+.public-profile-actions { margin-left: auto; display: grid; gap: 14px; justify-items: end; max-width: 360px; }
+.public-profile-actions .button { font-size: 12px; }
+.friend-controls { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: flex-end; }
+.friend-controls > .muted { font-size: 12px; }
+.friend-status { display: inline-flex; align-items: center; gap: 8px; color: var(--profile-accent); font-size: 13px; }
+.profile-friend-count { display: flex; gap: 7px; align-items: center; color: var(--profile-accent); font-size: 12px; margin-top: 13px; }
+.friend-requests-notice { display: flex; align-items: center; justify-content: flex-end; gap: 12px; font-size: 13px; color: #d5a2b4; margin-top: 25px; }
+.friend-invite-panel { padding: 27px; background: #171013; border: 1px solid #563942; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 24px; margin: 30px 0 35px; }
+.friend-invite-panel h2 { display: flex; gap: 11px; align-items: center; color: #ead7e0; font-size: 21px; font-weight: 700; }
+.friend-invite-panel p { font-size: 13px; line-height: 1.8; color: #b9a0ad; margin-top: 7px; max-width: 440px; }
+.friend-invite-panel > .success-message, .friend-invite-panel > .error-message { width: 100%; margin: 0; }
+.friend-invite-form { display: flex; align-items: stretch; gap: 12px; }
+.friend-invite-form input { width: 200px; padding: 12px; background: #0d0b0c; border: 1px solid #6c4d59; border-radius: 2px; color: #ecd9e3; font-size: 14px; }
+.friend-invite-form .button { font-size: 12px; }
+.friends-toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 25px; padding-bottom: 20px; border-bottom: 1px solid #4b333f; }
+.friends-toolbar .plain-tabs { gap: 28px; }
+.friends-toolbar .plain-tabs button { font-size: 14px; }
+.friends-search { display: flex; gap: 10px; align-items: center; color: #aa8698; }
+.friends-search input { font-size: 13px; background: transparent; border: 0; border-bottom: 1px solid #664654; padding: 10px 4px; color: #e3cbd7; width: 190px; }
+.friends-list { display: grid; }
+.friend-row { display: flex; justify-content: space-between; align-items: center; gap: 25px; padding: 25px 0; border-bottom: 1px solid #392b33; }
+.friend-person { display: flex; align-items: center; gap: 19px; min-width: 0; }
+.friend-person > span:last-child { min-width: 0; }
+.friend-person strong { display: block; color: #e5d7df; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.friend-person small { display: block; color: #b49aaa; font-size: 13px; margin-top: 4px; }
+.friend-row-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: flex-end; }
+.friend-row-actions .button, .friend-row-actions .text-link { font-size: 12px; }
+@media(max-width: 1200px) {
+  .primary-nav { gap: 19px; }
+  .primary-nav a { font-size: 13px; }
+  .achievement-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .profile-post-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .pacts-checkin-toolbar { flex-wrap: wrap; }
+}
+@media(max-width: 760px) {
+  .primary-nav { justify-content: flex-start; overflow-x: auto; scrollbar-width: none; gap: 24px; }
+  .primary-nav::-webkit-scrollbar { display: none; }
+  .profile-identity-expanded { gap: 20px; flex-wrap: wrap; }
+  .person-avatar.large { width: 73px; height: 73px; font-size: 35px; }
+  .profile-identity-copy h1 { font-size: 31px; }
+  .profile-bio { font-size: 14px; }
+  .profile-header-controls { flex-direction: row; flex-wrap: wrap; align-items: center; margin: 7px 0 0; width: 100%; gap: 15px 22px; }
+  .profile-header-controls .button-quiet { margin-left: auto; }
+  .profile-section-nav { gap: 12px 20px; }
+  .profile-section-nav a:last-child { margin-left: 0; }
+  .module-heading h2 { font-size: 26px; }
+  .profile-module { margin-top: 42px; }
+  .module-heading { gap: 18px; }
+  .achievement { padding: 19px 15px; gap: 12px; }
+  .achievement-medal { width: 38px; height: 49px; }
+  .year-goal { gap: 13px; padding: 18px; flex-wrap: wrap; }
+  .goal-actions { margin-left: 34px; width: calc(100% - 34px); justify-content: flex-end; }
+  .goal-actions .icon-button, .profile-post-footer .icon-button { width: 40px; height: 40px; }
+  .profile-post-body { padding: 20px; }
+  .profile-post h3 { font-size: 22px; }
+  .profile-post-body > p { font-size: 13px; }
+  .public-profile-actions { width: 100%; margin-left: 0; max-width: none; justify-items: start; }
+  .friend-controls { justify-content: flex-start; }
+  .friend-invite-panel { padding: 22px; }
+  .friend-invite-form { flex: 1; min-width: 0; }
+  .friend-invite-form input { flex: 1; min-width: 0; }
+  .friend-row { align-items: flex-start; flex-wrap: wrap; gap: 18px; }
+  .friend-row-actions { margin-left: 71px; justify-content: flex-start; }
+}
+@media(max-width: 480px) {
+  .primary-nav { gap: 18px; }
+  .primary-nav a { font-size: 12px; gap: 6px; }
+  .primary-nav a svg { width: 16px; height: 16px; }
+  .profile-header-controls { gap: 17px; }
+  .profile-header-controls .button { font-size: 12px; }
+  .profile-section-nav { gap: 12px 18px; }
+  .profile-section-nav a { font-size: 12px; }
+  .pacts-checkin-toolbar { margin-top: 25px; gap: 17px; }
+  .pacts-checkin-toolbar .module-actions { justify-content: flex-start; gap: 10px; }
+  .pacts-checkin-toolbar .module-actions .button { padding: 12px; font-size: 11px; }
+  .catalog-personal-action { justify-content: flex-start; padding-top: 18px; }
+  .achievement-grid, .profile-post-grid { grid-template-columns: minmax(0, 1fr); }
+  .achievement { padding: 20px; gap: 20px; }
+  .achievement h3 { font-size: 15px; }
+  .achievement p { font-size: 13px; }
+  .profile-filters button { padding: 8px 11px; font-size: 11px; min-height: 38px; }
+  .module-heading p { font-size: 12px; }
+  .module-actions { gap: 9px; }
+  .module-actions .button { font-size: 12px; }
+  .goal-topline h3 { font-size: 16px; }
+  .profile-post-body > p { font-size: 14px; }
+  .profile-form-grid { gap: 15px; }
+  .avatar-editor { gap: 18px; align-items: flex-start; }
+  .avatar-editor .person-avatar.large { width: 62px; height: 62px; }
+  .form-stack input[type="file"] { padding: 8px; font-size: 11px; }
+  .form-stack input[type="file"]::file-selector-button { display: block; margin-bottom: 7px; }
+  .friends-toolbar .plain-tabs { gap: 19px; }
+  .friends-toolbar .plain-tabs button { font-size: 12px; }
+  .friends-search, .friends-search input { width: 100%; }
+  .friend-invite-form { flex-wrap: wrap; }
+  .friend-invite-form input { width: 100%; flex-basis: 100%; }
+  .friend-invite-form .button { width: 100%; }
+  .friend-row-actions { margin-left: 0; width: 100%; }
+  .friend-person strong { font-size: 17px; }
+}
+@media(prefers-reduced-motion: reduce) { .goal-progress-track > span, .profile-filters button { transition: none; } }

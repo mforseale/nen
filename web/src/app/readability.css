@@ -1,0 +1,159 @@
+/* Readable type and controls across the whole product, including narrow screens. */
+body { font-size: 18px; line-height: 1.65; }
+.button { min-height: 48px; padding: 13px 20px; font-size: 16px; font-weight: 700; line-height: 1.5; gap: 11px; }
+.button > svg, .text-link > svg { width: 22px; height: 22px; flex-shrink: 0; }
+.icon-button { width: 42px; height: 42px; }
+.icon-button > svg { width: 24px; height: 24px; }
+.text-link, .text-small { font-size: 15px; }
+.muted { font-size: 16px; line-height: 1.8; }
+.eyebrow { font-size: 13px; letter-spacing: 1.5px; }
+.tier, .joint-label { font-size: 14px; font-weight: 750; letter-spacing: 1px; }
+.page-title h1 { font-size: 50px; }
+.page-intro { font-size: 18px; line-height: 1.8; }
+.section-label { font-size: 32px; }
+.primary-nav { gap: 22px; }
+.primary-nav a { font-size: 16px; gap: 9px; }
+.primary-nav svg { width: 22px; height: 22px; }
+.header-actions { gap: 19px; }
+.profile-button { width: 43px; height: 43px; font-size: 20px; }
+.header-divider { height: 28px; }
+.notification-dot { min-width: 20px; height: 20px; font-size: 12px; top: -2px; }
+.nav-search-field { min-height: 48px; }
+.nav-search-field input { height: 46px; font-size: 16px; }
+.nav-search-field > svg { width: 22px; height: 22px; }
+.nav-search-kind { font-size: 14px; }
+.nav-search-caption { font-size: 14px; padding: 14px 17px 10px; }
+.nav-search-category, .nav-search-result { font-size: 17px; padding: 14px 17px; min-height: 52px; }
+.nav-search-category > svg { width: 22px; height: 22px; }
+.nav-search-result small, .nav-search-status { font-size: 15px; }
+.catalog-direction-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 24px; }
+.catalog-direction-filters button { display: inline-flex; align-items: center; gap: 10px; padding: 11px 16px; border: 1px solid #5e4655; border-radius: 3px; background: #120e12e8; font-size: 17px; font-weight: 650; color: #d6c3d0; min-height: 48px; }
+.catalog-direction-filters button.active { background: #2c202d; border-color: #b28aab; }
+.catalog-direction-filters button > span { font-size: 23px; line-height: 1; }
+.catalog-count { font-size: 15px; letter-spacing: 1.3px; }
+.tier-tabs { gap: 24px; }
+.tier-tabs button { font-size: 17px; padding: 19px 0; }
+.tier-tabs small { font-size: 14px; }
+.catalog-search { width: 200px; }
+.catalog-search input { font-size: 16px; }
+.pact-tile { padding: 28px; }
+.pact-tile h3 { font-size: 31px; font-weight: 700; }
+.pact-tile > p { font-size: 17px; line-height: 1.85; }
+.pact-tile .pact-symbol svg { width: 42px; height: 42px; }
+.pact-tile-bottom { font-size: 14px; gap: 14px; flex-wrap: wrap; }
+.pact-tile-bottom svg { width: 22px; height: 22px; }
+.pact-number { font-size: 14px; }
+.joined-label { font-size: 14px; }
+.joint-banner h2 { font-size: 32px; }
+.joint-banner p { font-size: 17px; line-height: 1.8; }
+.joint-banner .button, .catalog-personal-action .button { font-size: 16px; }
+.profile-identity-expanded { gap: 32px; padding-block: 35px; }
+.profile-identity-expanded > .person-avatar.large { width: 154px; height: 154px; font-size: 68px; box-shadow: 0 0 0 9px #171116; border: 2px solid var(--profile-accent); }
+.profile-identity-copy h1 { font-size: 42px; line-height: 1.3; }
+.profile-identity .eyebrow { font-size: 13px; }
+.profile-identity .muted { font-size: 16px; line-height: 1.8; }
+.profile-bio { font-size: 17px; line-height: 1.8; }
+.profile-header-controls .button, .profile-header-controls .text-link { font-size: 15px; }
+.profile-goals-first > .profile-module { margin-top: 22px; padding-top: 18px; border-top: 0; padding-bottom: 10px; }
+.profile-goals-first .module-heading h2 { font-size: 33px; }
+.profile-section-nav a { font-size: 16px; min-height: 40px; }
+.profile-section-nav a > svg { width: 22px; height: 22px; }
+.profile-stats { gap: 35px; }
+.profile-stats span { font-size: 14px; }
+.profile-stats strong { font-size: 35px; }
+.profile-stats a { font-size: 16px; }
+.pacts-checkin-toolbar strong { font-size: 21px; }
+.pacts-checkin-toolbar p { font-size: 16px; }
+.module-actions .button, .module-heading > .button { font-size: 16px; padding: 12px 18px; }
+.module-heading h2 { font-size: 32px; }
+.module-heading p { font-size: 16px; }
+.module-heading h2 > svg { width: 26px; height: 26px; }
+.profile-filters button { font-size: 15px; min-height: 44px; padding: 11px 15px; }
+.profile-filters svg { width: 19px; height: 19px; }
+.profile-empty-line { font-size: 17px; }
+.goal-topline h3 { font-size: 21px; }
+.goal-content > p { font-size: 16px; }
+.goal-progress-caption { font-size: 16px; }
+.goal-status svg { width: 27px; height: 27px; }
+.goal-actions > .button { font-size: 16px; min-height: 42px; padding: 8px 14px; }
+.audience-label { font-size: 14px; }
+.audience-label svg { width: 17px; height: 17px; }
+.year-select select { min-height: 46px; font-size: 17px; }
+.achievement h3 { font-size: 18px; }
+.achievement p { font-size: 15px; }
+.achievement small { font-size: 14px; }
+.achievement-medal { width: 52px; height: 62px; }
+.achievement-medal > svg { width: 30px; height: 30px; }
+.achievement-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.profile-post-meta { font-size: 14px; }
+.profile-post h3 { font-size: 29px; }
+.profile-post-body > p { font-size: 17px; }
+.profile-post-link, .profile-expand { font-size: 16px; }
+.profile-post-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+.public-profile-actions .button, .friend-controls > .muted, .friend-status, .profile-friend-count { font-size: 16px; }
+.plain-tabs button { font-size: 17px; }
+.my-pact-name h3 { font-size: 28px; }
+.my-pact-name p, .custom-pact-label { font-size: 14px; }
+.pact-progress { font-size: 15px; }
+.my-pact-action .button, .my-pact-action .text-link { font-size: 15px; }
+.profile-bottom h3 { font-size: 29px; }
+.profile-bottom p { font-size: 16px; }
+.nen-dialog { width: min(640px,calc(100% - 28px)); }
+.nen-dialog > h2 { font-size: 36px; }
+.dialog-header .eyebrow { font-size: 12px; }
+.form-stack > p { font-size: 16px; line-height: 1.8; }
+.form-stack > label, .profile-form-grid > label, .avatar-editor label { font-size: 16px; font-weight: 650; }
+.form-stack > label > input, .form-stack > label > textarea, .form-stack select, .profile-form-grid input { font-size: 17px; min-height: 48px; }
+.form-stack input[type="file"] { font-size: 14px; }
+.form-caption, .form-stack > label > small { font-size: 14px; line-height: 1.8; }
+.detail-meta { font-size: 15px; flex-wrap: wrap; }
+.detail-description { font-size: 17px; }
+.oath-notice { font-size: 16px; }
+.comment p, .forum-post p, .request-conditions, .note-prose { font-size: 17px; line-height: 1.9; }
+.comment-meta, .post-meta, .post-meta > a, .post-topic, .request-meta, .request-people { font-size: 14px; }
+.comment-form textarea, .forum-compose textarea { font-size: 17px; }
+.comment-meta time, .post-meta time { font-size: 14px; }
+.forum-compose > .muted { font-size: 16px; }
+.trending-grid h3 { font-size: 22px; }
+.trending-grid p, .trending-section .eyebrow { font-size: 14px; }
+.trending-grid > button { gap: 16px; }
+.forum-layout .section-heading select { font-size: 15px; min-height: 44px; width: 230px; }
+.request-body h2 { font-size: 31px; }
+.request-buttons .button { font-size: 16px; }
+.note-card h2 { font-size: 31px; }
+.note-card > p { font-size: 17px; }
+.note-card-meta, .note-card-bottom { font-size: 14px; }
+.note-reading h1 { font-size: 43px; }
+.visibility-options > label { font-size: 15px; padding: 13px 12px; }
+.visibility-options svg { width: 21px; height: 21px; }
+.empty-state h3 { font-size: 31px; }
+.empty-state p, .loading, .error-message, .success-message { font-size: 16px; }
+.friend-invite-panel h2 { font-size: 26px; }
+.friend-invite-panel p, .friend-invite-form input, .friend-invite-form .button, .friends-toolbar .plain-tabs button, .friends-search input, .friend-row-actions .button, .friend-row-actions .text-link { font-size: 16px; }
+.friend-person strong { font-size: 22px; }
+.friend-person small, .friend-requests-notice { font-size: 15px; }
+.friend-person .person-avatar { width: 64px; height: 64px; font-size: 30px; }
+.calendar-help { font-size: 15px; }
+.hex-tier-tabs .tier { font-size: 14px; letter-spacing: .3px; }
+.hex-panel-daily { display: flex; align-items: center; gap: 9px; padding: 0 0 20px; color: #cbb7c5; font-size: 16px; }
+.hex-panel-daily strong { color: var(--direction-color); font-weight: 750; }
+.hex-panel-heading p, .hex-pact-slot small { font-size: 14px; }
+.planner-sidebar-heading h2 { font-size: 18px; }
+.planner-calendar-name, .planner-overview { font-size: 17px; }
+.planner-overview > span:last-child, .planner-calendar-link small, .planner-sidebar-empty, .planner-sidebar-hint, .planner-theme-description p, .planner-legend > span, .planner-summary span, .planner-theme-description .text-link, .planner-remove-calendar { font-size: 15px; }
+.planner-period h2 { font-size: 29px; }
+.planner-today.button, .planner-view-switch button, .planner-filters > select { font-size: 15px; min-height: 44px; }
+.planner-record-search input { font-size: 16px; min-height: 44px; }
+.planner-entry-open strong { font-size: 18px; }
+.planner-entry-meta, .planner-entry-meta b, .planner-entry-description { font-size: 15px; }
+.planner-weekday { font-size: 14px; }
+.planner-day-number { font-size: 22px; }
+.planner-day-number small { font-size: 14px; }
+.planner-entry-toggle { min-width: 28px; min-height: 28px; }
+.auth-form-panel h2 { font-size: 34px; }
+.auth-form-panel > p:not(.eyebrow), .auth-toggle, .auth-back { font-size: 16px; line-height: 1.8; }
+.site-footer { font-size: 14px; }
+.request-direction { display: flex; align-items: center; flex-wrap: wrap; gap: 15px; font-size: 17px; font-weight: 650; color: #d6c0ce; margin-block: 14px; }
+@media(max-width:1280px) { .site-header { grid-template-columns: auto 1fr auto; height: auto; min-height: 142px; gap: 0 26px; padding-top: 20px; } .brand { grid-row: 1; grid-column: 1; } .nav-search { grid-row: 1; grid-column: 2; max-width: 540px; justify-self: end; } .header-actions { grid-row: 1; grid-column: 3; } .primary-nav { grid-row: 2; grid-column: 1 / -1; height: 62px; gap: 34px; } .primary-nav a.active::after { bottom: 4px; } }
+@media(max-width:760px) { body { font-size: 17px; } .site-header { grid-template-columns: 1fr auto; padding-top: 20px; gap: 0; } .header-actions { grid-row: 1; grid-column: 2; } .nav-search { grid-row: 3; grid-column: 1 / -1; max-width: none; margin-block: 5px 18px; } .primary-nav { gap: 27px; height: 66px; justify-content: flex-start; } .primary-nav a { font-size: 16px; } .profile-identity-expanded > .person-avatar.large { width: 118px; height: 118px; font-size: 52px; } .profile-identity-copy h1 { font-size: 34px; } .profile-identity-expanded { gap: 25px; padding-block: 28px; } .page-title h1 { font-size: 42px; } .achievement-grid, .profile-post-grid { grid-template-columns: minmax(0,1fr); } .pact-tile h3 { font-size: 28px; } .pact-tile { padding: 23px; } .tier-tabs { gap: 22px; overflow-x: auto; } .tier-tabs button { flex-shrink: 0; font-size: 16px; } .catalog-search { width: 100%; } .catalog-direction-filters { gap: 9px; } .catalog-direction-filters button { font-size: 16px; padding: 10px 13px; } .module-actions { justify-content: flex-start; } .module-heading h2 { font-size: 29px; } .profile-section-nav { gap: 12px 24px; } }
+@media(max-width:480px) { .page-title h1 { font-size: 37px; } .profile-identity-expanded > .person-avatar.large { width: 108px; height: 108px; font-size: 47px; } .profile-identity-expanded { gap: 21px; } .profile-identity-copy h1 { font-size: 29px; } .profile-identity .muted { font-size: 14px; } .profile-header-controls .button, .profile-header-controls .text-link { font-size: 15px; } .profile-section-nav a { font-size: 15px; } .profile-stats { gap: 24px; } .profile-stats span { font-size: 14px; } .profile-stats strong { font-size: 31px; } .module-heading p { font-size: 15px; } .module-actions .button, .pacts-checkin-toolbar .module-actions .button { font-size: 15px; padding: 12px 15px; } .goal-topline h3 { font-size: 20px; } .goal-content > p { font-size: 16px; } .goal-progress-caption { font-size: 15px; } .achievement h3 { font-size: 18px; } .achievement p { font-size: 15px; } .profile-filters button { font-size: 15px; } .profile-post h3 { font-size: 27px; } .profile-post-body > p { font-size: 17px; } .form-stack > label, .profile-form-grid > label { font-size: 16px; } .profile-form-grid { grid-template-columns: minmax(0,1fr); } .avatar-editor { flex-wrap: wrap; } .nen-dialog > h2 { font-size: 31px; } .request-people, .request-meta { font-size: 14px; } .forum-post p, .request-conditions { font-size: 17px; } .friends-toolbar .plain-tabs { flex-wrap: wrap; } .friends-toolbar .plain-tabs button { font-size: 16px; } .visibility-options { flex-wrap: wrap; } }

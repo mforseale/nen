@@ -1,9 +1,7 @@
-<!-- BEGIN:nextjs-agent-rules -->
+# Работа с проектом
 
-## This is NOT the Next.js you know
+При разработке архитектурных решений записывай их в Markdown-файлах в `docs/` и не удаляй прежние решения. При последующих действиях ориентируйся на них; новые решения явно отмечай как заменяющие устаревшие.
 
-This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+Начни с `docs/architecture.md` и соответствующего документа по изменяемой части проекта. План CI/CD находится в `docs/ci-cd-plan.md`, перенос в общий репозиторий — в `docs/repository.md`.
 
-This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
-
-<!-- END:nextjs-agent-rules -->
+Не добавляй в Git базы данных, резервные копии, рабочие `.env`, ключи, зависимости и результаты сборки. Для frontend также действуют инструкции `web/AGENTS.md`.

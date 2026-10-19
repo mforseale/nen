@@ -1,0 +1,4 @@
+fastapi[standard]==0.115.12
+sqlalchemy==2.0.41
+alembic==1.16.1
+pydantic==2.11.7

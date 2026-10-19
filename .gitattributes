@@ -1,0 +1,11 @@
+# Keep Linux scripts and source files portable across Windows and Linux.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

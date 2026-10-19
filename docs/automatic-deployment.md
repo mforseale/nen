@@ -1,5 +1,9 @@
 # Автоматическая доставка Nen из GitHub Actions
 
+## После перехода профиля — 20 октября 2026
+
+Версия `4a74c2a` установлена через согласованный root-переход схемы `0001 → 0002`. Новая главная, API профиля и форума доступны по HTTPS; контрольный [Deploy №39325706966](https://github.com/mforseale/nen/actions/runs/39325706966) успешен, production SSH подтвердил тот же commit и `exit_code=0`. Временная пауза снята: `NEN_CD_ENABLED=true`. Последующие изменения с той же схемой устанавливаются автоматически; новая миграция требует отдельного проверенного перехода. [Подробности](profile-upgrade-deployment.md).
+
 ## Первая автоматическая установка подтверждена — 19 октября 2026
 
 Полная цепочка `push → CI → Deploy → VM` прошла для commit `651a3f4d3666aea0416817435819480772e9684f`: [CI №39287002015](https://github.com/mforseale/nen/actions/runs/39287002015) и [Deploy №39287786098](https://github.com/mforseale/nen/actions/runs/39287786098) завершились с `success`. В Deploy успешны выбор проверенного artifact, скачивание, `Deliver and install runtime` и `Check public HTTPS`; probe пропущен, поскольку выполнялась настоящая установка.

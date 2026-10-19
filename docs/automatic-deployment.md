@@ -1,5 +1,15 @@
 # Автоматическая доставка Nen из GitHub Actions
 
+## Production SSH подтверждён
+
+После запуска bootstrap пользователь очистил терминал и повторил установщик. Повторный запуск остановился на уже существующем `/usr/local/lib/nen/cd`; это штатная защита от перезаписи. Далее SSH-сессия пользователя закрылась, и Linux-команда `runuser` оказалась в Windows CMD. Для продолжения повторная установка не нужна.
+
+Из текущей сессии выполнен настоящий SSH `probe` на `nen-deploy@144.31.189.98` с выделенным `.deploy/keys/nen-actions`, `IdentitiesOnly=yes`, `BatchMode=yes`, `StrictHostKeyChecking=yes`. Получен успешный ответ `{"ready":true,"protocol":1,"busy":false}`. Это подтверждает установленный SSH gate и sudo-команду на настоящей VM; GitHub Secrets и первый production Deploy из Actions ещё ожидаются.
+
+Чтобы не возвращаться в VM-консоль за публичным host key, извлечена единственная ранее доверенная Ed25519-запись именно для `144.31.189.98` через локальный `ssh-keygen -F`. Её доверие дополнительно проверено успешным строгим SSH-соединением. Запись сохранена в игнорируемый `.deploy/keys/nen-known-hosts`; fingerprint `SHA256:XG5bHiHrix/pOY+SxWcdMKHbLbPLsB6x3LpB4fY4mTI`. Нового доверия через непроверенный `ssh-keyscan` не добавлялось.
+
+Оставшаяся настройка GitHub: secret `NEN_DEPLOY_SSH_KEY` из `.deploy/keys/nen-actions` и secret `NEN_DEPLOY_KNOWN_HOSTS` из `.deploy/keys/nen-known-hosts`, затем Actions Deploy/probe, repository variable `NEN_CD_ENABLED=true`, CI на текущем `main`. Для копирования в clipboard из Windows CMD можно вызвать `powershell -NoProfile -Command "Get-Content -Raw 'D:\projects\nen\.deploy\keys\nen-actions' | Set-Clipboard"`; аналогично для `nen-known-hosts`. Приватный ключ не печатается и не передаётся в чат. Исторические ожидания bootstrap ниже относятся к моменту подготовки.
+
 Решение от 19 октября 2026 года. Продолжает подтверждённую [установку готового пакета](simple-deployment.md). Сохраняются фиксированные рабочие каталоги и одна предыдущая копия; накопления релизов нет. Реализация подготовлена в репозитории, установка SSH-доступа и secrets на настоящей VM/GitHub пока ожидается. Этот документ заменяет прежние упоминания SSH-доставки как ещё не реализованного кода; исторические записи сохранены.
 
 ## Подтверждённый Linux CI

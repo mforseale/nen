@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/mforseale/nen/actions/workflows/ci.yml/badge.svg)](https://github.com/mforseale/nen/actions/workflows/ci.yml)
 
-[CI в GitHub Actions](docs/continuous-integration.md) проверяет API, frontend и production-сборку при push и pull request в `main`. Автоматический deploy пока не подключён.
+[CI в GitHub Actions](docs/continuous-integration.md) проверяет API, frontend и production-сборку при push и pull request в `main`. После успешных проверок актуального `main` [автоматический Deploy](docs/automatic-deployment.md) устанавливает готовый пакет на VM и сохраняет одну предыдущую версию. Изменения схемы БД выполняются отдельным проверенным шагом.
 
 ## Что работает
 

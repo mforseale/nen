@@ -1,5 +1,9 @@
 # Nen: расположение файлов и план CI/CD
 
+## Автоматическая доставка работает — 19 октября 2026
+
+Для commit `651a3f4` успешно прошла цепочка `push → CI → Deploy → VM`: [CI №39287002015](https://github.com/mforseale/nen/actions/runs/39287002015), [Deploy №39287786098](https://github.com/mforseale/nen/actions/runs/39287786098). Production SSH подтвердил установленный commit и `status=success`; публичные HTTPS health и главная отвечают HTTP 200. Bootstrap, secrets, `NEN_CD_ENABLED=true` и права `/srv/nen` настроены. Рабочая версия и одна предыдущая копия сохранены, схема БД меняется отдельно. [Доказательства и инструкция](automatic-deployment.md). Нижеследующие ожидания относятся к истории реализации.
+
 ## Автоматическая доставка — реализация подготовлена
 
 Код следующего этапа: [automatic-deployment.md](automatic-deployment.md). `Deploy` независимо от отменяемого CI выбирает проверенный artifact текущего `main`, отправляет его по ограниченному SSH-доступу и ждёт самостоятельную systemd-установку. Требуются bootstrap VM, два GitHub secrets, probe и repository variable `NEN_CD_ENABLED=true`. Пока они не настроены, автоматические установки выключены. Прежние записи «следующий этап» ниже описывают момент ручного обновления.

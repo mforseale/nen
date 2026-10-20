@@ -26,29 +26,35 @@ function HomeContent() {
   const inDirection = active.filter(pact => !category || directionOf(pact) === category);
   const visible = inDirection.filter(pact => (tier === "all" || pact.rarity === tier) && (pact.title + " " + pact.description).toLocaleLowerCase("ru").includes(query.trim().toLocaleLowerCase("ru")));
   const direction = directions.find(item => item.name === category);
+  function chooseDirection(value: DirectionName | null) {
+    setCategory(value);
+    requestAnimationFrame(() => document.getElementById("home-own-pacts")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" }));
+  }
   return <Shell home>
-    <section className="home-pact-stage" aria-labelledby="home-title">
-      <div className="home-stage-heading"><div><p className="eyebrow">ШЕСТЬ НАПРАВЛЕНИЙ</p><h1 id="home-title">Мои пакты</h1></div><Link href={user ? profileHref(user.username,"","pacts") : "/login"} className="text-link"><Icon name="seal"/>Мой прогресс <Icon name="arrow"/></Link></div>
-      <div className="home-stage-composition">
-        <div className="home-direction-scene">
-          <div className="home-chain-art" aria-hidden="true"/>
-          <HomeDirections pacts={active} selected={category} onSelect={setCategory} loading={authLoading || loading}/>
-        </div>
-        <div className="home-direction-context" style={direction ? {borderColor:direction.color} : undefined}>
-          <div className="home-context-title">{direction && <span style={{color:direction.color}} aria-hidden="true">{direction.glyph}</span>}<h2>{category ?? "Собственные условия"}</h2></div>
-          <p>{direction?.description ?? "Создай пакт: определи условия, выбери направление и срок."}</p>
-          <p className="home-capacity-note">Выбирай столько пактов, сколько нужно тебе.</p>
-          {user ? <button className="button full-width" onClick={() => setPersonal(true)}><Icon name="plus"/>Создать свой пакт</button> : <Link href="/login" className="button full-width"><Icon name="plus"/>Создать свой пакт</Link>}
-          {user ? <button className="text-link home-joint-action" onClick={() => setJoint(true)}><Icon name="link"/>Предложить совместный</button> : <Link href="/login" className="text-link home-joint-action"><Icon name="link"/>Предложить совместный</Link>}
-        </div>
-      </div>
-    </section>
+    <div className="home-stage-heading"><div><p className="eyebrow">ШЕСТЬ НАПРАВЛЕНИЙ</p><h1 id="home-title">Мои пакты</h1></div><Link href={user ? profileHref(user.username,"","pacts") : "/login"} className="text-link"><Icon name="seal"/>Мой прогресс <Icon name="arrow"/></Link></div>
     <section className="home-own-pacts" id="home-own-pacts" aria-labelledby="home-pacts-title">
       <div className="home-pacts-heading"><h2 id="home-pacts-title">{category ?? "Все направления"}<span>{authLoading || loading ? "…" : inDirection.length}</span></h2>{category && <button className="text-link" onClick={() => setCategory(null)}>Все направления <Icon name="close" size={20}/></button>}</div>
       {authLoading ? <Loading/> : !user ? <div className="home-pacts-empty"><Icon name="lock" size={32}/><div><h3>Твои пакты будут здесь</h3><p>Войди, чтобы создавать пакты и отслеживать прогресс.</p></div><Link href="/login" className="button">Войти <Icon name="arrow"/></Link></div> : <>
         <div className="home-pacts-toolbar"><div className="home-tier-filters" role="group" aria-label="Тир пакта"><button aria-pressed={tier === "all"} onClick={() => setTier("all")}>Все тиры</button>{tierOrder.map(item => <button key={item} data-tier={item} aria-pressed={tier === item} onClick={() => setTier(item)}><span className={"tier-dot tier-"+item}/>{tiers[item].label}<small>{tiers[item].duration}</small></button>)}</div><label className="home-pact-search"><Icon name="search"/><input aria-label="Поиск среди своих пактов" placeholder="Найти свой пакт" value={query} onChange={event => setQuery(event.target.value)}/></label></div>
         <ErrorMessage error={error}/>{loading ? <Loading/> : !error && (visible.length ? <div className="home-pact-list">{visible.map(pact => <Link key={pact.id} href={profileHref(user?.username,`pact=${pact.id}`,"pacts")} className="home-pact-row" data-pact-id={pact.id} data-tier={pact.rarity}><span className={"tier tier-"+pact.rarity}>{tiers[pact.rarity].label}</span><div><h3>{pact.title}</h3><p>{directionOf(pact)}{pact.is_joint ? " · совместный" : ""} · {pactDays(pact)}{pact.duration_days ? ` / ${pact.duration_days} дней` : " дней"} · стрик {pact.streak_days ?? 0}</p></div><strong>{pact.progress === null ? "∞" : `${pact.progress}%`}</strong><Icon name="arrow"/></Link>)}</div> : <div className="home-pacts-empty"><Icon name="feather" size={32}/><div><h3>{query.trim() ? "Пакты не найдены" : "Здесь пока нет пактов"}</h3><p>{query.trim() ? "Попробуй другое название или сбрось фильтры." : "Напиши собственные условия и выбери срок."}</p></div><button className="button" onClick={() => setPersonal(true)}><Icon name="plus"/>Создать пакт</button></div>)}
       </>}
+    </section>
+    <section className="home-pact-stage" aria-label="Направления и создание пактов">
+      <div className="home-stage-composition">
+        <div className="home-direction-scene">
+          <div className="home-chain-art" aria-hidden="true"/>
+          <HomeDirections pacts={active} selected={category} onSelect={chooseDirection} loading={authLoading || loading}/>
+        </div>
+        <div className="home-direction-context" style={direction ? {borderColor:direction.color} : undefined}>
+          <div className="home-context-title">{direction && <span style={{color:direction.color}} aria-hidden="true">{direction.glyph}</span>}<h2>{category ?? "Собственные условия"}</h2></div>
+          <p>{direction?.description ?? "Создай пакт: определи условия, выбери направление и срок."}</p>
+          <p className="home-capacity-note">Выбирай столько пактов, сколько нужно тебе.</p>
+          <div className="home-context-actions">
+            {user ? <button className="button full-width" onClick={() => setPersonal(true)}><Icon name="plus"/>Создать свой пакт</button> : <Link href="/login" className="button full-width"><Icon name="plus"/>Создать свой пакт</Link>}
+            {user ? <button className="button button-quiet home-joint-action" onClick={() => setJoint(true)}><Icon name="friends"/>Предложить совместный</button> : <Link href="/login" className="button button-quiet home-joint-action"><Icon name="friends"/>Предложить совместный</Link>}
+          </div>
+        </div>
+      </div>
     </section>
     {personal && <PersonalPactForm defaultCategory={category ?? "Другое"} defaultRarity={tier === "all" ? "common" : tier} onClose={() => setPersonal(false)}/>}
     {joint && <JointForm onClose={() => setJoint(false)}/>}

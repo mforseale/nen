@@ -5,14 +5,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState, type FormEvent
 import { refreshData } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { audiences, type Audience, type ProfileFile, type ProfilePost } from "@/lib/community";
-import { fileIcon, fileSize, MAX_FILE_SIZE, MAX_FILES, MAX_POST_SIZE, multipart } from "@/lib/profile-files";
+import { fileIcon, fileLabel, fileSize, MAX_FILE_SIZE, MAX_FILES, MAX_POST_SIZE, multipart } from "@/lib/profile-files";
 import { checkpointPostDraft, deletePostDraft, loadPostDraft, postDraftKey, savePostDraft, type PostDraft } from "@/lib/post-drafts";
 import { filePreview } from "@/lib/file-preview";
 import { ErrorMessage, Icon, Modal } from "./ui";
 import { PostTextEditor } from "./post-rich-text";
+import { FilePicker } from "./file-picker";
 
 type Pending = { key: string; file: File };
-const PendingAttachment = memo(function PendingAttachment({ item, onRemove }: { item: Pending; onRemove: (key: string) => void }) {
+const PendingAttachment = memo(function PendingAttachment({ item, index, onRemove }: { item: Pending; index: number; onRemove: (key: string) => void }) {
   const [preview, setPreview] = useState<string | null>(null);
   useEffect(() => {
     let active = true, url: string | null = null;
@@ -22,7 +23,7 @@ const PendingAttachment = memo(function PendingAttachment({ item, onRemove }: { 
     });
     return () => { active = false; if (url) URL.revokeObjectURL(url); };
   }, [item.file]);
-  return <div>{preview ? <img src={preview} alt="" decoding="async"/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : item.file.type.startsWith("image/") ? "image" : "file"}/>}<span><strong>{item.file.name}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать файл "+item.file.name} onClick={()=>onRemove(item.key)}><Icon name="close"/></button></div>;
+  return <div>{preview ? <img src={preview} alt="" decoding="async"/> : <Icon name={item.file.type.startsWith("audio/") ? "music" : item.file.type.startsWith("image/") ? "image" : "file"}/>}<span><strong>{fileLabel(item.file,index)}</strong><small>{fileSize(item.file.size)} · новый файл</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+(index+1)} onClick={()=>onRemove(item.key)}><Icon name="close"/></button></div>;
 });
 export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost; onClose: () => void }) {
   // A background feed refresh must never reset an editor that is already open.
@@ -109,9 +110,9 @@ export function PostEditor({ post: initialPost, onClose }: { post?: ProfilePost;
     <fieldset disabled={busy || !ready} className="post-composer-fields">
       <label>Заголовок (необязательно)<input name="title" value={title} onChange={event=>setTitle(event.target.value)} maxLength={150} placeholder="О чём этот пост?"/></label>
       <PostTextEditor value={content} onChange={setContent} disabled={busy || !ready} onAttach={()=>picker.current?.click()}/>
-      <label className="file-drop-label"><Icon name="upload"/><strong>Добавить файлы</strong><span>Изображения, музыка, видео и документы</span><input ref={picker} type="file" multiple disabled={busy || !ready} onChange={event=>{select(event.target.files);event.target.value="";}}/></label>
+      <label className="file-drop-label"><strong>Добавить файлы</strong><span>Изображения, музыка, видео и документы</span><FilePicker inputRef={picker} multiple selectionCount={pending.length} disabled={busy || !ready} onChange={event=>{select(event.target.files);event.target.value="";}}/></label>
       <p className="form-caption">До 10 файлов · 25 МиБ на файл · 50 МиБ на пост. Музыка появится под изображениями.</p>
-      {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map(file=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+file.name} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map(item=><PendingAttachment key={item.key} item={item} onRemove={removePending}/>)}</div>}
+      {(retained.length > 0 || pending.length > 0) && <div className="composer-attachments">{retained.map((file,index)=><div key={file.id}><Icon name={fileIcon(file.kind)}/><span><strong>{fileLabel(file,index)}</strong><small>{fileSize(file.size)}{file.pinned && " · в закрепе"}</small></span><button type="button" className="icon-button" aria-label={"Убрать вложение "+(index+1)} onClick={()=>setRetained(retained.filter(item=>item.id!==file.id))}><Icon name="close"/></button></div>)}{pending.map((item,index)=><PendingAttachment key={item.key} item={item} index={retained.length+index} onRemove={removePending}/>)}</div>}
       {post?.image_url && !removeImage && <div className="post-image-preview"><img src={post.image_url} alt="Картинка из прежней публикации"/><button type="button" className="text-link" onClick={()=>setRemoveImage(true)}>Убрать прежнюю картинку</button></div>}
       {pending.length > 0 && <label className="composer-pin"><input type="checkbox" checked={pinNew} onChange={event=>setPinNew(event.target.checked)}/>Закрепить новые вложения в профиле (до 10 файлов)</label>}
       <label>Ссылка (необязательно)<input type="url" name="url" value={url} onChange={event=>setUrl(event.target.value)} maxLength={2000} placeholder="https://…"/></label>

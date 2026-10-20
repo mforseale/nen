@@ -25,7 +25,8 @@ function load(relative) {
     if (name === "@/lib/profile-files") return load("lib/profile-files.ts");
     if (name.startsWith("@/lib/")) return load("lib/"+name.slice(6)+".ts");
     if (name === "./profile-editors") return {};
-    if (name === "./ui") return { Icon: ({ name }) => React.createElement("svg", { "data-icon": name }), Action: ({ children, className, disabled }) => React.createElement("button", { className, disabled }, children),Modal:({title,children})=>React.createElement("section",{"data-modal":title},children),ErrorMessage:()=>null,Loading:()=>React.createElement("div",null,"Loading") };
+    if (name === "./ui" || name === "@/components/ui") return { Shell:({children})=>React.createElement("main",null,children),Icon: ({ name }) => React.createElement("svg", { "data-icon": name }), Action: ({ children, className, disabled }) => React.createElement("button", { className, disabled }, children),Modal:({title,children})=>React.createElement("section",{"data-modal":title},children),ErrorMessage:()=>null,Loading:()=>React.createElement("div",null,"Loading") };
+    if (name.startsWith("@/components/")) return load("components/"+name.slice(13)+".tsx");
     if (name.startsWith("./")) {
       const base=path.resolve(path.dirname(filename),name);
       for(const suffix of [".tsx",".ts"]) if(fs.existsSync(base+suffix)) return load(path.relative(path.join(__dirname,"../src"),base+suffix));
@@ -157,7 +158,9 @@ test("profile status is always in the identity header and music uses manual cont
   const html=render(ProfileAbout,{profile,owner:true,onEdit:()=>{}});
   assert.match(html,/Учусь быть последовательнее/);
   assert.match(html,/<audio controls="" preload="none"/);
-  assert.match(html,/My track.mp3/);
+  assert.doesNotMatch(html,/My track.mp3/);
+  assert.match(html,/Музыка профиля/);
+  assert.match(html,/Повторять трек бесконечно/);
   assert.match(html,/Подробнее/);
   assert.doesNotMatch(html,/autoplay|javascript:|<details|<dialog/);
 });
@@ -168,7 +171,8 @@ test("images and audio belong to one post, with manual audio controls below its 
   const html=render(ProfilePosts,{posts:[post]});
   assert.ok(html.indexOf('<img src="/api/v1/profile/files/1/content"')<html.indexOf("<audio"));
   assert.match(html,/<audio controls="" preload="none" src="\/api\/v1\/profile\/files\/2\/content"/);
-  assert.match(html,/file-3/);
+  assert.match(html,/Документ 1/);
+  assert.doesNotMatch(html,/file-3/);
   assert.doesNotMatch(html,/Форматы публикаций|autoplay|iframe|Закрепить/);
 });
 
@@ -219,7 +223,7 @@ test("pinned shelf accepts arbitrary files and compact view limits previews to f
 test("post composer has one format and an unrestricted multiple-file picker",()=>{
   const {PostEditor}=load("components/post-editor.tsx");
   const html=render(PostEditor,{onClose:()=>{}});
-  assert.match(html,/<input type="file" multiple=""/);
+  assert.match(html,/<input[^>]*type="file"[^>]*multiple=""/);
   assert.doesNotMatch(html,/accept=|Формат|name="kind"/);
   assert.match(html,/25 МиБ/);
 });
@@ -241,4 +245,22 @@ test("overview puts measured yearly goals first and uses real friend avatars",()
   assert.match(html,/25%/);
   assert.match(html,/href="\/people\/boris"/);
   assert.match(html,/src="\/api\/v1\/people\/boris\/avatar"/);
+});
+
+test("active pact list precedes the direction map and creation uses a separate friends action",()=>{
+  const {default:Home}=load("app/page.tsx");
+  const html=render(Home,{});
+  assert.ok(html.indexOf('id="home-own-pacts"')<html.indexOf('class="home-pact-stage"'));
+  assert.match(html,/class="home-context-actions"/);
+  assert.match(html,/home-joint-action[^>]*><svg data-icon="friends"/);
+});
+
+test("filenames are absent from pins, media, inspectors and profile settings",()=>{
+  const {PinnedFiles,AttachmentList,FileInspector}=load("components/profile-files.tsx");
+  const {SettingsForm}=load("components/profile-editors.tsx");
+  const files=['image','audio','video','file'].map((kind,i)=>({...attachment(i+1,kind),name:`private-original-${i}.dat`,pinned:true}));
+  const profile={user:{id:1,username:'alice',full_name:'Alice'},bio:'',accent:'crimson',status_audio:files[1],status_audio_id:2};
+  const html=render(PinnedFiles,{files,owner:true})+render(AttachmentList,{files,owner:true})+files.map(file=>render(FileInspector,{file,owner:true,onClose:()=>{}})).join('')+render(SettingsForm,{profile,onClose:()=>{}});
+  for(const file of files)assert.ok(!html.includes(file.name),file.kind+' exposes its filename');
+  assert.match(html,/Текущий трек/);assert.match(html,/Громкость/);assert.match(html,/Повторять трек бесконечно/);
 });

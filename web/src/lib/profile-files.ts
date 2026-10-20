@@ -10,6 +10,11 @@ export function fileSize(bytes: number) {
 }
 export function fileExtension(name: string) { return name.includes(".") ? name.split(".").pop()!.slice(0, 7).toUpperCase() : "ФАЙЛ"; }
 export function fileIcon(kind: string) { return kind === "image" ? "image" : kind === "audio" ? "music" : kind === "video" ? "film" : "file"; }
+export function fileLabel(file: { kind?: string; type?: string }, index?: number) {
+  const kind = file.kind ?? (file.type?.startsWith("image/") ? "image" : file.type?.startsWith("audio/") ? "audio" : file.type?.startsWith("video/") ? "video" : "file");
+  const label = kind === "image" ? "Изображение" : kind === "audio" ? "Трек" : kind === "video" ? "Видео" : "Документ";
+  return index === undefined ? label : `${label} ${index + 1}`;
+}
 export async function multipart<T>(path: string, method: string, body: FormData): Promise<T> {
   const response = await fetch(API_URL + path, { method, body, credentials: "include" });
   if (!response.ok) {

@@ -41,6 +41,8 @@ export function Icon({ name, size = 24, className = "" }: { name: string; size?:
     target: <><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="m12 12 8-8M17 3h4v4"/></>,
     image: <><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8" cy="8" r="1.5"/><path d="m3 18 6-6 4 4 3-4 5 6"/></>,
     music: <><path d="M9 18V5l12-3v13M9 8l12-3"/><ellipse cx="6" cy="18" rx="3" ry="3"/><ellipse cx="18" cy="15" rx="3" ry="3"/></>,
+    repeat: <><path d="m17 2 4 4-4 4M3 11V8a2 2 0 0 1 2-2h16M7 22l-4-4 4-4m14-1v3a2 2 0 0 1-2 2H3"/></>,
+    volume: <><path d="m11 4-5 4H2v8h4l5 4ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/></>,
     film: <><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 3v18M17 3v18M3 8h4m-4 8h4m10-8h4m-4 8h4m-10-8 4 4-4 3Z"/></>,
     file: <path d="M14 2H5v20h14V7ZM14 2v5h5M8 12h8M8 16h6"/>,
     pin: <path d="m15 3 6 6-3 1-4 4-1 4-7-7 4-1 4-4ZM3 21l6-6"/>,

@@ -4,9 +4,11 @@
 import { useState, type FormEvent } from "react";
 import { api, refreshData, useApi } from "@/lib/api";
 import { audiences, type ProfileFile } from "@/lib/community";
-import { fileExtension, fileIcon, fileSize, MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
+import { fileExtension, fileIcon, fileLabel, fileSize, MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
 import { Action, ErrorMessage, Icon, Loading, Modal } from "./ui";
 import { PostGallery } from "./post-gallery";
+import { AudioPlayer } from "./audio-player";
+import { FilePicker } from "./file-picker";
 
 export function PinButton({ file }: { file: ProfileFile }) {
   return <Action className={"button-quiet file-pin " + (file.pinned ? "pinned" : "")} onClick={async()=>{await api(`/my/files/${file.id}`,"PUT",{pinned:!file.pinned});refreshData();}}><Icon name="pin" size={19}/>{file.pinned ? "В закрепе" : "Закрепить"}</Action>;
@@ -19,8 +21,8 @@ export function FileInspector({ file: original, owner, onClose }: { file: Profil
     try {setFile(await api<ProfileFile>(`/my/files/${file.id}`,"PUT",{pinned:file.pinned,visibility:new FormData(event.currentTarget).get("visibility")}));refreshData();}
     catch(error){setError((error as Error).message);} finally {setBusy(false);}
   }
-  return <Modal title={file.name} onClose={onClose} className="profile-detail-dialog"><div className="file-inspector">
-    {file.kind === "image" ? <img className="inspector-image" src={file.url} alt={file.name}/> : file.kind === "audio" ? <audio controls preload="none" src={file.url}>Скачать аудио можно по ссылке ниже.</audio> : file.kind === "video" ? <video controls preload="metadata" src={file.url}/> : <div className="file-document-art"><Icon name="file" size={60}/><strong>{fileExtension(file.name)}</strong></div>}
+  return <Modal title={fileLabel(file)} onClose={onClose} className="profile-detail-dialog"><div className="file-inspector">
+    {file.kind === "image" ? <img className="inspector-image" src={file.url} alt="Изображение"/> : file.kind === "audio" ? <AudioPlayer src={file.url}/> : file.kind === "video" ? <video controls preload="metadata" src={file.url} aria-label="Видео"/> : <div className="file-document-art"><Icon name="file" size={60}/><strong>{fileExtension(file.name)}</strong></div>}
     <p className="file-inspector-meta">{fileSize(file.size)} · {file.media_type} · {audiences[file.visibility]}{file.post_id && " · вложение поста"}</p>
     <div className="file-inspector-actions"><a className="button" href={file.download_url}><Icon name="download"/>Скачать файл</a>{owner && <Action className="button-quiet" onClick={async()=>{setFile(await api<ProfileFile>(`/my/files/${file.id}`,"PUT",{pinned:!file.pinned}));refreshData();}}><Icon name="pin"/>{file.pinned ? "Снять закреп" : "Закрепить"}</Action>}</div>
     {owner && !file.post_id && <form className="file-visibility-form" onSubmit={visibility}><label>Кто видит файл<select name="visibility" defaultValue={file.visibility}>{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button button-quiet" disabled={busy}>Сохранить видимость</button><ErrorMessage error={error}/></form>}
@@ -40,15 +42,15 @@ export function AttachmentList({ files, owner = false, compact = false, legacyIm
   const media = files.filter(file=>file.kind === "audio" || file.kind === "video"), other = files.filter(file=>file.kind === "file");
   return <div className={"post-attachments"+(compact ? " compact-attachments" : "")}>
     {images.length > 0 && <PostGallery images={images} compact={compact} onOpen={setImageIndex}/>}
-    {media.length > 0 && <div className="post-media-list">{media.map(file=><div className={"post-media post-media-"+file.kind} key={file.id}><div className="post-media-heading"><span className="post-file-emblem"><Icon name={fileIcon(file.kind)}/></span><strong>{file.name}</strong>{owner && !compact && <PinButton file={file}/>}</div>{file.kind === "audio" ? <audio controls preload="none" src={file.url}/> : <video controls preload="metadata" src={file.url}/>}<div className="post-media-footer"><span>{fileSize(file.size)}</span><a href={file.download_url}>Скачать</a></div></div>)}</div>}
-    {other.length > 0 && <div className="post-other-files">{other.map(file=><div key={file.id}><button className="post-file-open" onClick={()=>setView(file)}><span className="post-file-emblem"><Icon name="file"/><b>{fileExtension(file.name)}</b></span><span><strong>{file.name}</strong><small>{fileSize(file.size)}</small></span></button>{owner && !compact && <PinButton file={file}/>}<a className="icon-button" href={file.download_url} aria-label={"Скачать "+file.name}><Icon name="download"/></a></div>)}</div>}
+    {media.length > 0 && <div className="post-media-list">{media.map((file,index)=><div className={"post-media post-media-"+file.kind} key={file.id}><div className="post-media-heading"><span className="post-file-emblem"><Icon name={fileIcon(file.kind)}/></span><strong>{fileLabel(file,index)}</strong>{owner && !compact && <PinButton file={file}/>}</div>{file.kind === "audio" ? <AudioPlayer src={file.url} label={fileLabel(file,index)}/> : <video controls preload="metadata" src={file.url} aria-label={fileLabel(file,index)}/>}<div className="post-media-footer"><span>{fileSize(file.size)}</span><a href={file.download_url}>Скачать</a></div></div>)}</div>}
+    {other.length > 0 && <div className="post-other-files">{other.map((file,index)=><div key={file.id}><button className="post-file-open" onClick={()=>setView(file)}><span className="post-file-emblem"><Icon name="file"/><b>{fileExtension(file.name)}</b></span><span><strong>{fileLabel(file,index)}</strong><small>{fileSize(file.size)}</small></span></button>{owner && !compact && <PinButton file={file}/>}<a className="icon-button" href={file.download_url} aria-label={"Скачать документ "+(index+1)}><Icon name="download"/></a></div>)}</div>}
     {view && <FileInspector key={view.id} file={view} owner={owner} onClose={()=>setView(null)}/>}
     {imageIndex !== null && images.length > 0 && <PostImageViewer images={images.map(image=>({url:image.url,downloadUrl:image.file?.download_url ?? image.url}))} index={Math.min(imageIndex,images.length-1)} onChange={setImageIndex} onClose={()=>setImageIndex(null)}/>}
   </div>;
 }
 
 function FileTile({ file, onClick }: { file: ProfileFile; onClick: () => void }) {
-  return <button className={"pinned-file-tile file-kind-"+file.kind} onClick={onClick}><span className="pinned-file-art">{file.kind === "image" ? <img src={file.url} alt="" loading="lazy"/> : <><Icon name={fileIcon(file.kind)} size={32}/><b>{file.kind === "audio" ? "АУДИО" : file.kind === "video" ? "ВИДЕО" : fileExtension(file.name)}</b></>}</span><strong>{file.name}</strong><small>{fileSize(file.size)}</small></button>;
+  return <button className={"pinned-file-tile file-kind-"+file.kind} onClick={onClick} aria-label={"Открыть: "+fileLabel(file)}><span className="pinned-file-art">{file.kind === "image" ? <img src={file.url} alt="" loading="lazy"/> : <><Icon name={fileIcon(file.kind)} size={32}/><b>{file.kind === "audio" ? "АУДИО" : file.kind === "video" ? "ВИДЕО" : fileExtension(file.name)}</b></>}</span><small>{fileSize(file.size)}</small></button>;
 }
 
 function FileLibrary({ pins, owner, onClose }: { pins: ProfileFile[]; owner: boolean; onClose: () => void }) {
@@ -62,8 +64,8 @@ function FileLibrary({ pins, owner, onClose }: { pins: ProfileFile[]; owner: boo
   }
   return <Modal title={owner ? "Файлы профиля" : "Закреплённые файлы"} onClose={onClose} className="profile-detail-dialog">
     <p className="muted">В закрепе {owner ? items.filter(file=>file.pinned).length : pins.length} из 10 файлов.{owner && " Снятые закрепы остаются в твоей библиотеке."}</p>
-    {owner && <form className="library-upload form-stack" onSubmit={upload}><label>Добавить файл в закреп<input name="file" type="file" required disabled={busy}/></label><label>Кто видит<select name="visibility" defaultValue="private">{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button" disabled={busy || items.filter(file=>file.pinned).length >= 10}>{busy ? "Загружаем…" : "Загрузить и закрепить"}<Icon name="upload"/></button><p className="form-caption">Любой формат · до 25 МиБ на файл</p></form>}
-    <ErrorMessage error={error ?? library.error}/>{owner && library.loading ? <Loading/> : <div className="file-library-list">{items.slice(0,limit).map(file=><div key={file.id}><button onClick={()=>setView(file)}><Icon name={fileIcon(file.kind)}/><span><strong>{file.name}</strong><small>{fileSize(file.size)} · {audiences[file.visibility]}</small></span></button>{owner && <PinButton file={file}/>}</div>)}</div>}
+    {owner && <form className="library-upload form-stack" onSubmit={upload}><label>Добавить файл в закреп<FilePicker name="file" required disabled={busy}/></label><label>Кто видит<select name="visibility" defaultValue="private">{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label><button className="button" disabled={busy || items.filter(file=>file.pinned).length >= 10}>{busy ? "Загружаем…" : "Загрузить и закрепить"}<Icon name="upload"/></button><p className="form-caption">Любой формат · до 25 МиБ на файл</p></form>}
+    <ErrorMessage error={error ?? library.error}/>{owner && library.loading ? <Loading/> : <div className="file-library-list">{items.slice(0,limit).map((file,index)=><div key={file.id}><button onClick={()=>setView(file)}><Icon name={fileIcon(file.kind)}/><span><strong>{fileLabel(file,index)}</strong><small>{fileSize(file.size)} · {audiences[file.visibility]}</small></span></button>{owner && <PinButton file={file}/>}</div>)}</div>}
     {items.length > limit && <button className="button button-quiet" onClick={()=>setLimit(limit+12)}>Показать ещё</button>}
     {!items.length && !library.loading && <p className="profile-empty-line">Файлов пока нет.</p>}
     {view && <FileInspector key={view.id} file={view} owner={owner} onClose={()=>setView(null)}/>}

@@ -1,0 +1,50 @@
+/* The user's active list comes first; the direction artwork and creation follow. */
+.home-shell .home-stage-heading { padding-top: 38px; margin-bottom: 30px; }
+.home-shell .home-own-pacts { padding-left: var(--home-hand-space); padding-top: 12px; padding-bottom: 34px; border-top: 0; }
+.home-shell .home-pact-stage { border-top: 1px solid #3b3039; padding-top: 28px; }
+.home-shell .home-pact-list { max-height: min(620px,65svh); overflow-y: auto; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: #6b5064 #0b090b; }
+.home-shell .home-direction-context { padding: 28px; border: 1px solid #54424e; border-top-width: 2px; border-radius: 12px; background: #0c090c; }
+.home-context-actions { display: grid; gap: 16px; margin-top: 28px; }
+.home-direction-context .home-context-actions > .button { width: 100%; max-width: none; min-height: 54px; padding: 13px 16px; gap: 12px; justify-content: center; text-align: center; line-height: 1.4; }
+.home-direction-context .home-joint-action { margin: 0; background: transparent; border-color: #483742; color: #dfd1db; }
+.home-context-actions svg { width: 22px; height: 22px; flex: 0 0 22px; }
+
+.nen-audio-player { min-width: 0; width: 100%; }
+.nen-audio-player > audio { display: block; width: 100%; max-width: 100%; }
+.audio-preference-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 18px; padding-top: 12px; }
+.audio-repeat { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 8px 11px; border: 1px solid #51404d; border-radius: 6px; color: #c9bdc6; background: #100d10; font-size: 15px; font-weight: 650; }
+.audio-repeat[aria-pressed='true'] { color: #f1d8e5; border-color: #b67c9a; background: #2b1c27; }
+.audio-volume { display: flex; align-items: center; gap: 9px; flex: 1 1 140px; min-width: 0; max-width: 260px; color: #cdbbc7; }
+.audio-volume > svg { flex: 0 0 20px; }
+.audio-volume input[type='range'] { flex: 1; min-width: 55px; width: 100%; height: 32px; min-height: 0; padding: 0; border: 0; background: transparent; accent-color: #c58ea8; cursor: pointer; }
+.audio-volume output { min-width: 42px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.profile-status-track .audio-preference-controls { padding-top: 10px; }
+.post-media-heading > strong { min-width: 0; }
+.pinned-file-tile > small { margin-top: 8px; }
+
+.file-picker { position: relative; display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; min-width: 0; max-width: 100%; }
+.file-picker .file-picker-native { position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; margin: -1px; border: 0; clip-path: inset(50%); overflow: hidden; }
+.file-picker .file-picker-button { flex: 0 1 auto; min-width: 0; min-height: 44px; padding: 10px 14px; gap: 9px; font-size: 15px; line-height: 1.4; white-space: normal; }
+.file-picker-status { color: #b8aab3; font-size: 14px; line-height: 1.5; }
+.file-picker:focus-within { outline-offset: 5px; }
+.file-drop-label > .file-picker { margin-top: 10px; }
+.status-audio-upload > .file-picker { flex-basis: 100%; }
+
+@media(max-width:1560px) {
+  .home-direction-context .home-context-actions { max-width: 820px; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 20px; }
+}
+@media(max-width:1199px) {
+  .home-shell .home-own-pacts { padding-left: 0; }
+  .home-shell .home-chain-art { display: none; }
+  /* The existing hand stays in the heading area, clear of the upper pact list. */
+  .home-shell .home-stage-heading { min-height: calc(var(--home-art-height) * .64 + 80px); justify-content: flex-start; }
+}
+@media(max-width:640px) {
+  .home-shell .home-stage-heading { padding-top: 28px; }
+  .home-shell .home-direction-context { padding: 26px 24px; }
+  .home-direction-context .home-context-actions { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .home-direction-context .home-context-title h2 { font-size: 25px; }
+  .home-direction-context .home-context-actions > .button { font-size: 16px; padding-inline: 12px; }
+  .audio-preference-controls { gap: 10px; }
+  .audio-repeat { font-size: 14px; padding-inline: 9px; }
+}

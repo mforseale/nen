@@ -8,8 +8,9 @@ import { type DirectionName } from "@/lib/directions";
 import { useAuth } from "@/lib/auth";
 import { profileHref } from "@/lib/profile-navigation";
 import { audiences, pactCategories, prepareImage, type Audience, type ProfileData, type ProfileFile, type YearGoal } from "@/lib/community";
-import { MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
+import { fileLabel, fileSize, MAX_FILE_SIZE, multipart } from "@/lib/profile-files";
 import { ErrorMessage, Icon, Modal } from "./ui";
+import { FilePicker } from "./file-picker";
 
 export function AudienceSelect({ value = "private" }: { value?: Audience }) {
   return <label>Кто видит<select name="visibility" defaultValue={value}>{Object.entries(audiences).map(([key, title]) => <option key={key} value={key}>{title}</option>)}</select></label>;
@@ -64,16 +65,16 @@ export function SettingsForm({ profile, onClose }: { profile: ProfileData; onClo
   }
   const preview = image ?? (!remove ? profile.user.avatar_url : null);
   return <Modal title="Настройки профиля" onClose={onClose}><form className="form-stack" onSubmit={submit}>
-    <div className="avatar-editor"><div className="person-avatar large">{preview ? <img src={preview} alt="Предпросмотр аватарки"/> : profile.user.full_name.slice(0, 1)}</div><div><label>Аватарка<input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy || preparing} onChange={async event => {
+    <div className="avatar-editor"><div className="person-avatar large">{preview ? <img src={preview} alt="Предпросмотр аватарки"/> : profile.user.full_name.slice(0, 1)}</div><div><label>Аватарка<FilePicker accept="image/png,image/jpeg,image/webp" selectionCount={image ? 1 : 0} disabled={busy || preparing} onChange={async event => {
       const file = event.target.files?.[0]; if (!file) return; setPreparing(true); setError(null);
       try { setImage(await prepareImage(file, true)); setRemove(false); } catch (error) { setError((error as Error).message); } finally { setPreparing(false); }
     }}/></label>{preview && <button type="button" className="text-link" onClick={() => {setRemove(true);setImage(null);}}>Убрать аватарку</button>}</div></div>
     <p className="form-caption">PNG, JPEG или WebP до 10 МиБ. Аватарка обрезается по центру. Имя, описание и аватар видны всем.</p>
     <label>Отображаемое имя<input name="full_name" defaultValue={profile.user.full_name} required minLength={2} maxLength={120}/></label>
     <fieldset className="profile-settings-group"><legend><Icon name="message"/>Статус — виден в шапке профиля</legend><label>Текст статуса<textarea name="status_text" defaultValue={profile.status_text ?? ""} maxLength={280} rows={3} placeholder="Чем живёшь сейчас?"/></label>
-      <label>Музыка из твоей библиотеки<select value={audioId ?? ""} disabled={!!audioFile} onChange={event=>setAudioId(event.target.value ? Number(event.target.value) : null)}><option value="">Без музыки</option>{profile.status_audio && !library.data?.some(file=>file.id === profile.status_audio_id) && <option value={profile.status_audio.id}>{profile.status_audio.name}</option>}{(library.data ?? []).filter(file=>file.kind === "audio" && !file.post_id).map(file=><option key={file.id} value={file.id}>{file.name} · {audiences[file.visibility]}</option>)}</select></label>
-      <label className="status-audio-upload"><Icon name="music"/>Или загрузи музыку<input type="file" accept="audio/*" disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(!file)return;if(file.size>MAX_FILE_SIZE){setError("Музыка должна быть не больше 25 МиБ.");event.target.value="";return;}setError(null);setAudioFile(file);}}/></label>
-      {audioFile && <div className="status-audio-pending"><span>{audioFile.name}</span><button type="button" className="text-link" onClick={()=>setAudioFile(null)}>Убрать</button></div>}
+      <label>Музыка из твоей библиотеки<select value={audioId ?? ""} disabled={!!audioFile} onChange={event=>setAudioId(event.target.value ? Number(event.target.value) : null)}><option value="">Без музыки</option>{profile.status_audio && !library.data?.some(file=>file.id === profile.status_audio_id) && <option value={profile.status_audio.id}>Текущий трек</option>}{(library.data ?? []).filter(file=>file.kind === "audio" && !file.post_id).map((file,index)=><option key={file.id} value={file.id}>{file.id === profile.status_audio_id ? "Текущий трек" : fileLabel(file,index)} · {fileSize(file.size)} · {audiences[file.visibility]}</option>)}</select></label>
+      <label className="status-audio-upload"><Icon name="music"/>Или загрузи музыку<FilePicker accept="audio/*" selectionCount={audioFile ? 1 : 0} disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(!file)return;if(file.size>MAX_FILE_SIZE){setError("Музыка должна быть не больше 25 МиБ.");event.target.value="";return;}setError(null);setAudioFile(file);}}/></label>
+      {audioFile && <div className="status-audio-pending"><span>Новый трек · {fileSize(audioFile.size)}</span><button type="button" className="text-link" onClick={()=>setAudioFile(null)}>Убрать</button></div>}
       {audioFile && <label>Кто сможет слушать новый файл<select name="audio_visibility" defaultValue="public">{Object.entries(audiences).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>}
       <p className="form-caption">Без автовоспроизведения. До 25 МиБ, закреп не расходуется. У файла из библиотеки сохраняется его видимость.</p><ErrorMessage error={library.error}/>
     </fieldset>

@@ -190,3 +190,19 @@ test("legacy drafts with embedded File blobs remain readable and normalize on th
   await savePostDraft(key,{...restored,updatedAt:2,content:'New text'});
   assert.equal((await loadPostDraft(key)).content,'New text');assert.equal(global.indexedDB.values.get('drafts').get(key).files.length,0);
 });
+
+test("audio preferences validate volume, preserve zero and persist repeat without unrelated writes",()=>{
+  const preferences=load('lib/audio-preferences.ts');
+  assert.deepEqual(preferences.parseAudioPreferences('{"volume":0,"loop":true}'),{volume:0,muted:false,loop:true});
+  assert.equal(preferences.parseAudioPreferences('{"volume":2}').volume,1);
+  assert.equal(preferences.parseAudioPreferences('{"volume":-2}').volume,0);
+  assert.equal(preferences.parseAudioPreferences('{"volume":1e309}').volume,1);
+  assert.deepEqual(preferences.parseAudioPreferences('broken'),{volume:1,muted:false,loop:false});
+  global.localStorage=memoryStorage();global.window=new EventTarget();
+  preferences.setAudioPreferences({volume:.27,loop:true});
+  assert.deepEqual(JSON.parse(localStorage.getItem(preferences.AUDIO_PREFERENCES_KEY)),{volume:.27,muted:false,loop:true});
+  assert.equal(preferences.getAudioPreferences(),preferences.getAudioPreferences());
+  preferences.setAudioPreferences({volume:0});assert.equal(preferences.getAudioPreferences().loop,true);
+  assert.equal(preferences.getAudioPreferences().volume,0);
+  delete global.window;
+});

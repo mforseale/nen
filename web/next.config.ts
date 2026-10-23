@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 import path from "node:path";
 
 const nextConfig: NextConfig = {
+  agentRules: false,
   output: "standalone",
   outputFileTracingRoot: path.resolve(__dirname),
   async rewrites() {
@@ -10,7 +11,6 @@ const nextConfig: NextConfig = {
   experimental: {
     proxyClientMaxBodySize: 60 * 1024 * 1024,
   },
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

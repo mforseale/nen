@@ -12,11 +12,11 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[1]
 INPUTS = (
-    "README.md", "docs", "scripts", "api/app", "api/alembic", "api/tests",
+    "README.md", "CONTRIBUTING.md", "docs", "scripts", "api/app", "api/alembic", "api/tests",
     "api/alembic.ini", "api/requirements.txt", "api/.env.example",
     "web/src", "web/public", "web/tests", "web/package.json",
     "web/package-lock.json", "web/next.config.ts", "web/tsconfig.json",
-    "web/eslint.config.mjs", "web/.env.example", "web/README.md", "web/AGENTS.md",
+    "web/eslint.config.mjs", "web/.env.example", "web/README.md",
 )
 EXCLUDED_PARTS = {".git", ".venv", "node_modules", ".next", "__pycache__", ".pytest_cache"}
 EXCLUDED_SUFFIXES = {".pyc", ".pyo", ".db", ".sqlite", ".sqlite3", ".tsbuildinfo", ".pem", ".key"}
@@ -41,7 +41,9 @@ def source_files():
                 continue
             if path.name.startswith(".env") and path.name != ".env.example":
                 continue
-            if parts[0] == "docs" and path.suffix != ".md":
+            if parts[0] == "docs" and path.suffix != ".md" and not (
+                len(parts) > 2 and parts[1] == "images" and path.suffix.lower() in {".png", ".jpg", ".jpeg", ".webp"}
+            ):
                 continue
             result.add(path)
     return sorted(result)

@@ -42,7 +42,7 @@ Push `651a3f4` создал [CI №39287002015](https://github.com/mforseale/nen
 
 [Запуск №39273932076](https://github.com/mforseale/nen/actions/runs/39273932076) для commit `7cdaa72911cac62034485c0514bb3be1f8e99907` завершился успешно. Пройдены API-тесты, 17 тестов архива/протокола/восстановления, frontend-тесты, lint, сборка, smoke готового архива и сквозной `Exercise VM deployment over restricted SSH`. Последний выполнял настоящий SSH и systemd на одноразовом runner: установка продолжилась после завершения клиента, повторный deploy не заменил предыдущую отличающуюся версию, данные тестового аккаунта сохранились, код принадлежит root, общий sudo для `nen-deploy` запрещён. Это подтверждение испытания в CI, а не подключения production secrets.
 
-Попытка `ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@144.31.189.98 id -un` из текущей сессии отклонена авторизацией (`Permission denied (publickey,password)`). Доверие host key прошло, но беспарольного root-доступа у агента нет. Поэтому bootstrap на настоящей VM выполняет пользователь в своей уже доступной консоли; закрытые ключи и root-пароль в чат не запрашиваются.
+Проверка `ssh -o BatchMode=yes -o StrictHostKeyChecking=yes root@144.31.189.98 id -un` на этом этапе отклонена авторизацией (`Permission denied (publickey,password)`). Доверие host key прошло, но беспарольный root-доступ для начальной настройки не настроен. Поэтому bootstrap выполняется оператором в доступной консоли VM; закрытые ключи и root-пароль остаются на стороне оператора.
 
 ## Поток обновления
 
@@ -109,7 +109,7 @@ Bootstrap не меняет SSH-конфигурацию демона, не ра
 5. Settings → Secrets and variables → Actions → **Variables**: создать repository variable `NEN_CD_ENABLED=true`.
 6. Запустить **CI → Run workflow** на текущем `main` либо отправить новый commit. После успешного CI workflow **Deploy** должен сам установить его пакет. Для ручного повторения: Deploy → mode `install`, numeric ID успешного CI run для текущего `main`.
 
-Оператору требуется передать только публичный ключ на VM и добавить два secrets/одну variable в GitHub. Для GitHub использовать доступ пользователя через UI; дополнительных GitHub PAT на VM нет. Доступ Codex к SSH VM и GitHub Secrets в этой сессии отсутствует, поэтому эти шаги выполняются пользователем. Они не считаются завершёнными до подтверждения probe/Deploy.
+Оператору требуется передать только публичный ключ на VM и добавить два secrets/одну variable через настройки GitHub. Дополнительных GitHub PAT на VM нет. Начальная настройка выполняется вручную; она считается завершённой после успешных probe и Deploy.
 
 ## Проверки и диагностика
 
